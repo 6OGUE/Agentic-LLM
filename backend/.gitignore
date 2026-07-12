@@ -1,0 +1,38 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# virtual environment
+venv/
+.env/
+.venv/
+
+# environment variables
+.env
+.env.*
+
+# logs
+*.log
+
+# build / packaging
+build/
+dist/
+*.egg-info/
+
+# testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / editor
+.vscode/
+.idea/
+.DS_Store
+
+# mypy
+.mypy_cache/
+
+# database (if using sqlite)
+*.db
+*.sqlite3

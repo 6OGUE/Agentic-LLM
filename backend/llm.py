@@ -1,7 +1,6 @@
 import json
 import os
 import time
-
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -15,9 +14,6 @@ client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
 
 with open("system_prompt.txt", "r") as f:
     SYSTEM_PROMPT = f.read()
-
-# Make sure system_prompt.txt explicitly tells the model to respond with
-# ONLY a raw JSON object and nothing else (no markdown fences, no prose).
 
 
 def _extract_json(text: str) -> dict:
@@ -45,10 +41,6 @@ Available tools:{json.dumps(tools, indent=2)}
                 contents=content,
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
-                    # No response_mime_type here — that flag is what triggers
-                    # the 500s on Gemma models without a matching response_schema.
-                    # Reliable JSON output instead comes from the system prompt
-                    # instruction + defensive parsing below.
                 ),
             )
             return _extract_json(res.text)

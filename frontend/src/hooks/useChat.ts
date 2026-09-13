@@ -83,12 +83,9 @@ export const useChat = (autoAccept: boolean) => {
       pendingUserMsg.current = null;
       callApi(originalMsg, true);
     } else {
+      isConfirming.current = true;
       pendingUserMsg.current = null;
-      isConfirming.current = false;
-      setMessages(prev => [
-        ...prev,
-        { role: 'agent', text: 'Action cancelled.', type: 'normal' },
-      ]);
+      callApi(originalMsg, false);
     }
   };
 

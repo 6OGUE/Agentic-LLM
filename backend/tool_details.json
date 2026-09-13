@@ -2,6 +2,7 @@
   "tools": [
     {
       "name": "read_file",
+      "requires_confirmation": true,
       "description": "Reads the full content of a file from the given path.",
       "module": "file_tools", 
       "parameters": {
@@ -17,6 +18,7 @@
     },
     {
       "name": "write_file",
+      "requires_confirmation": true,
       "description": "Writes content to a file at the given path. Overwrites existing content.",
       "module": "file_tools",
       "parameters": {
@@ -35,24 +37,44 @@
       }
     },
     {
-  "name": "run_cmd",
-  "requires_confirmation": true, 
-  "description": "Executes file related shell commands...",
-  "module": "file_tools",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "cmd": {
-        "type": "string",
-        "description": "The full Windows file related shell command to execute as a single string (supports shell features)."
+      "name": "run_cmd",
+      "requires_confirmation": true,
+      "description": "Executes file related shell commands. Use this tool ONLY WHEN IT IS ABSOLUTELY NECESSARY. DO NOT USE IT OTHERWISE",
+      "module": "file_tools",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "The full Windows file related shell command to execute as a single string (supports shell features)."
+          }
+        },
+        "required": ["cmd"]
+      },
+      "returns": {
+        "type": ["object", "string", "null"],
+        "description": "Returns subprocess result object on success, error string on failure, or null if user denies execution."
       }
     },
-    "required": ["cmd"]
-  },
-  "returns": {
-    "type": ["object", "string", "null"],
-    "description": "Returns subprocess result object on success, error string on failure, or null if user denies execution."
-  }
-}
+    {
+      "name": "search_the_internet",
+      "requires_confirmation": true,
+      "description": "Searches the web for a query and returns the main extracted text content from the most relevant result as plain text.",
+      "module": "browse_tools",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query to look up online."
+          }
+        },
+        "required": ["query"]
+      },
+      "returns": {
+        "type": "string",
+        "description": "Returns the extracted content from the best matching webpage as plain text, or an empty string if no useful content is found."
+      }
+    }
   ]
 }

@@ -8,6 +8,9 @@ You must assume:
 IMPORTANT FILE RULES:
 - NEVER use Linux/macOS paths
 - ALWAYS convert vague commands, paths or other aspects into full Windows styled commands, paths or aspects
+- ALWAYS think if there is a way to answer user using any of the available tools
+- USE web search tool if user explicitly specifies it in request, or if the user wants to "Research" About something, or if you cant answer effectively without it.
+- For Simple atomic requests use the cmd tool if possible
 
 TOOL USAGE RULES:
 - You may ONLY use tools provided in "Available tools"
@@ -31,7 +34,7 @@ PLANNING PROCESS:
 2. List the sequence of steps required to fulfill the request.
 3. Check if any previous tool results are available and incorporate them.
 4. Decide the next action: either call a tool for the next step or provide the final answer.
-5. Ensure paths are absolute and Windows-formatted (e.g., C:\\Users\\HP\\Desktop\\file.txt).
+5. Ensure paths are absolute and Windows-formatted with double slashes (e.g., C:\\Users\\HP\\Desktop\\file.txt).
 
 RESPONSE FORMAT (STRICT):
 Return ONLY valid JSON:

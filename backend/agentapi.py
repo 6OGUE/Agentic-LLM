@@ -1,10 +1,15 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+import json
 from typing import Optional
-from llm import ask_llm
-from executor import load_tools_schema, build_tool_registry, execute_tool
+
 import uvicorn
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from executor import build_tool_registry, execute_tool, load_tools_schema
+from llm import ask_llm
+
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -13,54 +18,118 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class ChatRequest(BaseModel):
     message: str
-    confirmed: Optional[bool] = None 
+    confirmed: Optional[bool] = None
 
-def agent(user_message, confirmed=None):
+
+def _print_tool_result(tool_name: str, result: object) -> None:
+    print(f"Tool response for {tool_name}:")
+    if isinstance(result, (dict, list)):
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        print(result)
+
+
+def _build_follow_up_prompt(original_request: str, tool_name: str, tool_result: str) -> str:
+    return f"""
+
+    Original request: {original_request}
+    Previous tool execution:
+        - name: {tool_name}
+        - result: {tool_result}
+    Determine the next step if required, else provide the final answer. Make sure the final answer is a structured and polished one and NEVER RETURN raw output of the tool result. STRICTLY DO NOT provide unwanted data. Only provide what the user has asked for.
+            
+    """
+
+
+def agent(user_message: str, confirmed: Optional[bool] = None):
     tools_schema = load_tools_schema("tool_details.json")
     registry = build_tool_registry(tools_schema)
     iteration = 0
-    max_iterations = 5
+    max_iterations = 10
+    require_tool_choice = True
 
     while iteration < max_iterations:
         iteration += 1
-        output = ask_llm(user_message, tools_schema)
+        output = ask_llm(user_message, tools_schema, require_tool_choice=require_tool_choice)
 
-        if not output["tool_call"]:
-            return {"status": "success", "response": output["response"]}
+        if not isinstance(output, dict):
+            return {
+                "status": "error",
+                "response": f"Unexpected model output: {output}",
+            }
 
-        tool_name = output["tool_name"]
-        tool_args = output["tool_args"]
+        if not output.get("tool_call"):
+            return {
+                "status": "success",
+                "response": output.get("response", ""),
+            }
 
-        current_tool = next((t for t in tools_schema if t["name"] == tool_name), {})
+        tool_name = output.get("tool_name")
+        tool_args = output.get("tool_args") or {}
+
+        if not tool_name:
+            return {
+                "status": "error",
+                "response": "Model requested a tool call without naming a tool.",
+            }
+
+        current_tool = next(
+            (tool for tool in tools_schema if tool["name"] == tool_name),
+            {},
+        )
+
         requires_auth = current_tool.get("requires_confirmation", False)
 
         if requires_auth and confirmed is None:
+            if tool_name == "run_cmd":
+                confirmation_message = (
+                    f"Agent wants to run the command: "
+                    f"{tool_args.get('cmd', '')}"
+                )
+            else:
+                confirmation_message = (
+                    f"Agent wants to {tool_name.replace('_', ' ')}"
+                )
+
             return {
                 "status": "requires_confirmation",
                 "tool_name": tool_name,
                 "tool_args": tool_args,
-                "message": f"Agent wants to run: {tool_args.get('cmd', tool_name)}"
+                "message": confirmation_message,
             }
 
         if requires_auth and confirmed is False:
-            return {"status": "success", "response": "Operation cancelled by user."}
+            require_tool_choice = False
+            confirmed = None
+            continue
 
-        result = execute_tool(tool_name, tool_args, registry, tools_schema)
-        confirmed = None 
+        result = execute_tool(
+            tool_name,
+            tool_args,
+            registry,
+            tools_schema,
+        )
 
-        user_message = f"""
-Original request: {user_message}
-Previous tool execution:
-- name: {tool_name}
-- result: {result}
-Determine the next step if required, else provide the final answer. Make sure the final answer is a structured and polished one and NEVER RETURN raw output of the tool result. STRICTLY DO NOT provide unwanted data. Only provide what the user has asked for.
-"""
+        _print_tool_result(tool_name, result)
 
-    return {"status": "error", "response": "Max iterations reached"}
+        confirmed = None
+
+        user_message = _build_follow_up_prompt(
+            user_message,
+            tool_name,
+            str(result),
+        )
+
+    return {
+        "status": "error",
+        "response": "Max iterations reached",
+    }
+
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
     return agent(request.message, confirmed=request.confirmed)
-

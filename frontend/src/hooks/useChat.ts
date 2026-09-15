@@ -25,7 +25,7 @@ export const useChat = (autoAccept: boolean) => {
         if (autoAccept) {
           isConfirming.current = true;
           pendingUserMsg.current = null;
-          callApi(userMsg, true);
+          await callApi(userMsg, true);
         } else {
           pendingUserMsg.current = userMsg;
           setMessages(prev => {

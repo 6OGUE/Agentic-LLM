@@ -12,7 +12,7 @@ from google.genai.errors import ServerError
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
-MODEL = "gemini-3.5-flash-lite" #gemma-4-26B-A4B-it || gemini-3.5-flash
+MODEL = "gemma-4-26b-a4b-it" #gemma-4-26b-a4b-it || gemini-3.5-flash-lite
 
 
 def build_llm_content(user_message, tools, require_tool_choice: bool = True) -> str:

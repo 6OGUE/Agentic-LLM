@@ -15,6 +15,21 @@ def write_file(path: str, content: str) -> str:
     return "written successfully"
 
 
+def rename_file(path: str, new_name: str) -> str:
+    source = Path(path)
+    destination = source.with_name(new_name)
+
+    if not source.is_file():
+        raise FileNotFoundError(f"Source file does not exist: {source}")
+    if source == destination:
+        raise ValueError("The new name must be different from the current name.")
+    if destination.exists():
+        raise FileExistsError(f"Destination file already exists: {destination}")
+
+    source.rename(destination)
+    return f"Renamed '{source}' to '{destination}'."
+
+
 def run_cmd(cmd: str) -> dict[str, Any]:
     try:
         completed_process = subprocess.run(

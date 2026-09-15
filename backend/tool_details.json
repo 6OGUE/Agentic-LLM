@@ -56,6 +56,31 @@
         "description": "Returns subprocess result object on success, error string on failure, or null if user denies execution."
       }
     },
+    
+{
+  "name": "rename_file",
+  "requires_confirmation": true,
+  "description": "Renames an existing file on the filesystem. Requires the full path to the current file and a distinct new filename.",
+  "module": "file_tools",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "The FULL absolute path of the EXISTING file you want to rename (e.g., 'C:\\Users\\HP\\Desktop\\musketeer')."
+      },
+      "new_name": {
+        "type": "string",
+        "description": "The brand NEW filename ONLY, without any directory path (e.g., 'ronin'). DO NOT pass a path here, and DO NOT reuse the old name."
+      }
+    },
+    "required": [
+      "path",
+      "new_name"
+    ]
+  }
+},
+
     {
       "name": "search_the_internet",
       "requires_confirmation": true,

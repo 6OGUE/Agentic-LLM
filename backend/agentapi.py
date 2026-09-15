@@ -1,10 +1,12 @@
 import json
-from typing import Optional
+from pathlib import Path
+from typing import Iterator, Optional
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.responses import StreamingResponse
 
 from executor import build_tool_registry, execute_tool, load_tools_schema
 from llm import ask_llm
@@ -44,37 +46,98 @@ def _build_follow_up_prompt(original_request: str, tool_name: str, tool_result: 
     """
 
 
-def agent(user_message: str, confirmed: Optional[bool] = None):
+def _build_incomplete_response_prompt(original_request: str) -> str:
+    return f"""
+
+    Original request: {original_request}
+    The previous model response was incomplete because it did not include a
+    final answer or a tool call. Continue the task using the available tools.
+    Do not return tool_call=false unless the entire request is complete and
+    response contains a non-empty final answer.
+
+    """
+
+
+def _build_repeated_tool_prompt(
+    original_request: str,
+    tool_name: str,
+    tool_args: dict,
+) -> str:
+    return f"""
+
+    Original request: {original_request}
+    You already executed this exact tool call successfully:
+        - name: {tool_name}
+        - arguments: {json.dumps(tool_args, ensure_ascii=False)}
+    Do not call the same tool with the same arguments again. Use the existing
+    result and provide the final answer now. Return tool_call=false with a
+    non-empty response.
+
+    """
+
+
+def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterator[dict]:
     tools_schema = load_tools_schema("tool_details.json")
     registry = build_tool_registry(tools_schema)
     iteration = 0
-    max_iterations = 10
     require_tool_choice = True
+    last_read_path: Optional[str] = None
+    tool_error = False
+    last_tool_call: Optional[tuple[str, dict]] = None
 
-    while iteration < max_iterations:
+    while True:
         iteration += 1
+        yield {"event": "iteration", "iteration": iteration}
         output = ask_llm(user_message, tools_schema, require_tool_choice=require_tool_choice)
 
         if not isinstance(output, dict):
-            return {
+            yield {
                 "status": "error",
                 "response": f"Unexpected model output: {output}",
             }
+            return
 
         if not output.get("tool_call"):
-            return {
-                "status": "success",
-                "response": output.get("response", ""),
-            }
+            response = output.get("response")
+            if isinstance(response, str) and response.strip() and not tool_error:
+                yield {
+                    "status": "success",
+                    "response": response,
+                }
+                return
+
+            user_message = _build_incomplete_response_prompt(user_message)
+            require_tool_choice = True
+            continue
 
         tool_name = output.get("tool_name")
         tool_args = output.get("tool_args") or {}
 
+        if tool_name == "rename_file" and last_read_path:
+            requested_path = tool_args.get("path", "")
+            new_name = tool_args.get("new_name", "")
+            if (
+                requested_path
+                and new_name
+                and Path(requested_path).name.lower() == new_name.lower()
+            ):
+                tool_args = {**tool_args, "path": last_read_path}
+
         if not tool_name:
-            return {
+            yield {
                 "status": "error",
                 "response": "Model requested a tool call without naming a tool.",
             }
+            return
+
+        if last_tool_call == (tool_name, tool_args):
+            user_message = _build_repeated_tool_prompt(
+                user_message,
+                tool_name,
+                tool_args,
+            )
+            require_tool_choice = False
+            continue
 
         current_tool = next(
             (tool for tool in tools_schema if tool["name"] == tool_name),
@@ -86,26 +149,28 @@ def agent(user_message: str, confirmed: Optional[bool] = None):
         if requires_auth and confirmed is None:
             if tool_name == "run_cmd":
                 confirmation_message = (
-                    f"Agent wants to run the command: "
-                    f"{tool_args.get('cmd', '')}"
+                   f'I want to run this command: >>     {tool_args.get("cmd", "")} '
                 )
             else:
                 confirmation_message = (
-                    f"Agent wants to {tool_name.replace('_', ' ')}"
+                    f"Can i {tool_name.replace('_', ' ')}?"
                 )
 
-            return {
+            yield {
                 "status": "requires_confirmation",
                 "tool_name": tool_name,
                 "tool_args": tool_args,
                 "message": confirmation_message,
+                "continuation": user_message,
             }
+            return
 
         if requires_auth and confirmed is False:
             require_tool_choice = False
             confirmed = None
             continue
 
+        yield {"event": "tool_call", "tool_name": tool_name}
         result = execute_tool(
             tool_name,
             tool_args,
@@ -115,21 +180,38 @@ def agent(user_message: str, confirmed: Optional[bool] = None):
 
         _print_tool_result(tool_name, result)
 
-        confirmed = None
+        if not isinstance(result, str) or not result.startswith(
+            ("Execution error:", "Tool validation error:")
+        ):
+            last_tool_call = (tool_name, tool_args)
+
+        if tool_name == "read_file" and not str(result).startswith("Execution error:"):
+            last_read_path = tool_args.get("path")
+        tool_error = isinstance(result, str) and (
+            result.startswith("Execution error:")
+            or result.startswith("Tool validation error:")
+        )
 
         user_message = _build_follow_up_prompt(
             user_message,
             tool_name,
             str(result),
         )
+        confirmed = None
 
-    return {
-        "status": "error",
-        "response": "Max iterations reached",
-    }
+def agent(user_message: str, confirmed: Optional[bool] = None):
+    """Run the agent and return the final event for non-streaming callers."""
+    final_event = None
+    for event in agent_events(user_message, confirmed):
+        final_event = event
+    return final_event
 
 
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    return agent(request.message, confirmed=request.confirmed)
+    def event_stream():
+        for event in agent_events(request.message, confirmed=request.confirmed):
+            yield json.dumps(event, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(event_stream(), media_type="application/x-ndjson")

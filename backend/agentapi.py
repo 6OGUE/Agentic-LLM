@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from executor import build_tool_registry, execute_tool, load_tools_schema
-from llm import ask_llm
+from llm import MODEL, ask_llm
 
 
 app = FastAPI()
@@ -89,6 +89,12 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
         iteration += 1
         yield {"event": "iteration", "iteration": iteration}
         output = ask_llm(user_message, tools_schema, require_tool_choice=require_tool_choice)
+        yield {
+            "event": "llm_call",
+            "iteration": iteration,
+            "model": MODEL,
+            "response": output,
+        }
 
         if not isinstance(output, dict):
             yield {
@@ -100,6 +106,10 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
         if not output.get("tool_call"):
             response = output.get("response")
             if isinstance(response, str) and response.strip() and not tool_error:
+                yield {
+                    "event": "agent_response",
+                    "response": response,
+                }
                 yield {
                     "status": "success",
                     "response": response,
@@ -147,14 +157,10 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
         requires_auth = current_tool.get("requires_confirmation", False)
 
         if requires_auth and confirmed is None:
-            if tool_name == "run_cmd":
-                confirmation_message = (
-                   f'I want to run this command: >>     {tool_args.get("cmd", "")} '
-                )
-            else:
-                confirmation_message = (
-                    f"Can i {tool_name.replace('_', ' ')}?"
-                )
+            
+            confirmation_message = (
+                f"Can i {tool_name.replace('_', ' ')}?"
+            )
 
             yield {
                 "status": "requires_confirmation",
@@ -171,6 +177,12 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
             continue
 
         yield {"event": "tool_call", "tool_name": tool_name}
+        yield {
+            "event": "tool_execution",
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "status": "started",
+        }
         result = execute_tool(
             tool_name,
             tool_args,
@@ -179,6 +191,13 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
         )
 
         _print_tool_result(tool_name, result)
+        yield {
+            "event": "tool_execution",
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "result": result,
+            "status": "completed",
+        }
 
         if not isinstance(result, str) or not result.startswith(
             ("Execution error:", "Tool validation error:")
@@ -200,13 +219,10 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
         confirmed = None
 
 def agent(user_message: str, confirmed: Optional[bool] = None):
-    """Run the agent and return the final event for non-streaming callers."""
     final_event = None
     for event in agent_events(user_message, confirmed):
         final_event = event
     return final_event
-
-
 
 @app.post("/chat")
 def chat(request: ChatRequest):

@@ -37,7 +37,7 @@
       }
     },
     {
-      "name": "run_cmd",
+      "name": "run_a_command",
       "requires_confirmation": true,
       "description": "Executes file related shell commands. Use this tool ONLY WHEN IT IS ABSOLUTELY NECESSARY. DO NOT USE IT OTHERWISE",
       "module": "file_tools",

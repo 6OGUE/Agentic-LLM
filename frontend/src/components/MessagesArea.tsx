@@ -8,10 +8,11 @@ type MessageType =
 interface MessagesAreaProps {
   messages: MessageType[];
   loading: boolean;
+  activeTool: string | null;
   onConfirm: (choice: boolean) => void;
 }
 
-const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, onConfirm }) => {
+const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, activeTool, onConfirm }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,7 +36,8 @@ const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, onConfir
           {loading && (
             <div className="thinking-row">
               <div className="avatar agent">✦</div>
-              <div className="dots">
+              <div className="thinking-status">
+                {activeTool && <span className="tool-label">Executing tool</span>}
                 <div className="dot" />
                 <div className="dot" />
                 <div className="dot" />

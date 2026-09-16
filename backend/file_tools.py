@@ -30,7 +30,7 @@ def rename_file(path: str, new_name: str) -> str:
     return f"Renamed '{source}' to '{destination}'."
 
 
-def run_cmd(cmd: str) -> dict[str, Any]:
+def run_a_command(cmd: str) -> dict[str, Any]:
     try:
         completed_process = subprocess.run(
             cmd,

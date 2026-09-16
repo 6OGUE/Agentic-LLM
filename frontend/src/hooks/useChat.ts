@@ -1,33 +1,78 @@
 import { useState, useRef } from 'react';
-import type { ChatResponse } from '../types';
+import type { ChatResponse, InternalEvent, IterationEvent, ToolCallEvent } from '../types';
 
 type Message =
   | { role: 'user' | 'agent'; text: string; type?: 'normal' }
-  | { role: 'agent'; type: 'confirmation'; text: string; answered: boolean };
+  | { role: 'agent'; type: 'confirmation'; text: string; answered: boolean; toolArgs?: unknown };
 
 export const useChat = (autoAccept: boolean) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const pendingUserMsg = useRef<string | null>(null);
+  const pendingContinuation = useRef<string | null>(null);
   const isConfirming = useRef(false);
+  const requestInFlight = useRef(false);
+  const abortController = useRef<AbortController | null>(null);
+  const [iteration, setIteration] = useState(0);
+  const [internalEvents, setInternalEvents] = useState<InternalEvent[]>([]);
 
-  const callApi = async (userMsg: string, isConfirmed?: boolean) => {
+  const callApi = async (
+    userMsg: string,
+    isConfirmed?: boolean,
+    continuation?: string,
+    ownsRequest = true,
+  ) => {
+    const controller = new AbortController();
+    abortController.current = controller;
     setLoading(true);
     try {
       const res = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, confirmed: isConfirmed }),
+        body: JSON.stringify({ message: continuation ?? userMsg, confirmed: isConfirmed }),
+        signal: controller.signal,
       });
-      const data: ChatResponse = await res.json();
+      if (!res.body) throw new Error('The chat response did not include a stream.');
 
-      if (data.status === 'requires_confirmation' && !isConfirming.current) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let data: ChatResponse | null = null;
+
+      const processEvent = (event: ChatResponse | InternalEvent | ToolCallEvent | IterationEvent) => {
+        if ('event' in event && event.event === 'tool_call') {
+          setActiveTool(event.tool_name);
+        } else if ('event' in event && event.event === 'iteration') {
+          setIteration(event.iteration);
+        } else if ('event' in event && (event.event === 'llm_call' || event.event === 'tool_execution' || event.event === 'agent_response')) {
+          setInternalEvents(prev => [...prev, event]);
+        } else {
+          data = event;
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        lines.filter(Boolean).forEach(line => processEvent(JSON.parse(line)));
+        if (done) break;
+      }
+
+      if (buffer.trim()) processEvent(JSON.parse(buffer));
+      if (!data) throw new Error('The chat response did not include a final event.');
+
+      if (data.status === 'requires_confirmation') {
         if (autoAccept) {
           isConfirming.current = true;
           pendingUserMsg.current = null;
-          await callApi(userMsg, true);
+          pendingContinuation.current = null;
+          await callApi(userMsg, true, data.continuation, false);
         } else {
           pendingUserMsg.current = userMsg;
+          pendingContinuation.current = data.continuation ?? userMsg;
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg?.role === 'agent' && lastMsg.type === 'confirmation' && !lastMsg.answered) {
@@ -35,28 +80,51 @@ export const useChat = (autoAccept: boolean) => {
             }
             return [
               ...prev,
-              { role: 'agent', type: 'confirmation', text: data.message ?? 'Confirm?', answered: false },
+              {
+                role: 'agent',
+                type: 'confirmation',
+                text: data.message ?? 'Confirm?',
+                answered: false,
+                toolArgs: data.tool_args,
+              },
             ];
           });
         }
       } else {
         pendingUserMsg.current = null;
+        pendingContinuation.current = null;
         isConfirming.current = false;
         setMessages(prev => [
           ...prev,
-          { role: 'agent', text: data.response || data.data || 'Done.', type: 'normal' },
+          {
+            role: 'agent',
+            text: data.response || data.data || 'The agent returned no response.',
+            type: 'normal',
+          },
         ]);
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Error calling API:', error);
       isConfirming.current = false;
     } finally {
+      if (abortController.current === controller) {
+        abortController.current = null;
+        setIteration(0);
+      }
+      if (ownsRequest) requestInFlight.current = false;
+      setActiveTool(null);
       setLoading(false);
     }
   };
 
+  const handleStop = () => {
+    abortController.current?.abort();
+  };
+
   const handleSend = (input: string) => {
-    if (!input.trim()) return;
+    if (!input.trim() || requestInFlight.current) return;
+    requestInFlight.current = true;
     isConfirming.current = false;
     setMessages(prev => [...prev, { role: 'user', text: input, type: 'normal' }]);
     callApi(input);
@@ -64,7 +132,9 @@ export const useChat = (autoAccept: boolean) => {
 
   const handleConfirm = (choice: boolean) => {
     const originalMsg = pendingUserMsg.current;
-    if (!originalMsg) return;
+    if (!originalMsg || requestInFlight.current) return;
+    requestInFlight.current = true;
+    const continuation = pendingContinuation.current ?? originalMsg;
 
     setMessages(prev => {
       const newMessages = [...prev];
@@ -81,18 +151,24 @@ export const useChat = (autoAccept: boolean) => {
     if (choice) {
       isConfirming.current = true;
       pendingUserMsg.current = null;
-      callApi(originalMsg, true);
+      pendingContinuation.current = null;
+      callApi(originalMsg, true, continuation);
     } else {
       isConfirming.current = true;
       pendingUserMsg.current = null;
-      callApi(originalMsg, false);
+      pendingContinuation.current = null;
+      callApi(originalMsg, false, continuation);
     }
   };
 
   return {
     messages,
     loading,
+    activeTool,
+    iteration,
+    internalEvents,
     handleSend,
+    handleStop,
     handleConfirm,
   };
 };

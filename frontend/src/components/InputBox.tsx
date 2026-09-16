@@ -4,10 +4,12 @@ interface InputBoxProps {
   input: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
+  onStop: () => void;
+  iteration: number;
   loading: boolean;
 }
 
-const InputBox: React.FC<InputBoxProps> = ({ input, onInputChange, onSend, loading }) => {
+const InputBox: React.FC<InputBoxProps> = ({ input, onInputChange, onSend, onStop, iteration, loading }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -35,11 +37,18 @@ const InputBox: React.FC<InputBoxProps> = ({ input, onInputChange, onSend, loadi
           onKeyDown={handleKeyDown}
           placeholder="Ask the agent to do something…"
         />
-        <button className="send-btn" onClick={onSend} disabled={!input.trim() || loading}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
+        {loading && <span className="iteration-label"> {iteration}</span>}
+        <button className="send-btn" onClick={loading ? onStop : onSend} disabled={!loading && !input.trim()} aria-label={loading ? 'Stop agent' : 'Send message'}>
+          {loading ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="5" y="5" width="14" height="14" rx="1" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          )}
         </button>
       </div>
       <div className="hint">Shift + Enter for new line</div>

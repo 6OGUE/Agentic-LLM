@@ -50,6 +50,57 @@ body {
 }
 .auto-accept-label.active { color: rgba(255,255,255,0.65); }
 
+.console-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.45);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.console-toggle.active { color: #c9c2ff; border-color: rgba(124,106,247,0.55); background: rgba(124,106,247,0.14); }
+.console-icon { color: #a78bfa; font-family: monospace; font-weight: 700; }
+
+.internal-console {
+  position: absolute;
+  z-index: 2;
+  top: 62px;
+  right: 20px;
+  width: min(460px, calc(100vw - 40px));
+  max-height: min(70vh, 620px);
+  display: flex;
+  flex-direction: column;
+  background: #19181f;
+  border: 1px solid rgba(167,139,250,0.3);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+.internal-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.console-kicker { color: #a78bfa; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.internal-console h2 { margin-top: 3px; color: #eeeafc; font-size: 14px; font-weight: 500; }
+.console-close { border: 0; background: none; color: rgba(255,255,255,0.5); font-size: 22px; line-height: 1; cursor: pointer; }
+.console-output { overflow-y: auto; padding: 10px; scrollbar-width: thin; }
+.console-empty { padding: 24px 10px; color: rgba(255,255,255,0.35); font-size: 12px; text-align: center; }
+.console-entry { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); font-family: monospace; font-size: 11px; }
+.console-entry:last-of-type { border-bottom: 0; }
+.console-entry-title { display: flex; gap: 8px; align-items: baseline; margin-bottom: 7px; color: #d4ccff; }
+.console-entry-title small { color: rgba(255,255,255,0.35); font-size: 10px; }
+.console-line { color: rgba(255,255,255,0.55); line-height: 1.5; }
+.console-line b { color: rgba(255,255,255,0.35); font-weight: 400; }
+.console-entry pre { max-height: 160px; overflow: auto; margin-top: 6px; padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.7); white-space: pre-wrap; word-break: break-word; }
+
 .toggle {
   position: relative;
   width: 32px;
@@ -178,17 +229,68 @@ body {
   box-shadow: 0 2px 12px rgba(108,92,231,0.3);
 }
 
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.btn-details {
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.68);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 11px;
+}
+.btn-details:hover { background: rgb(106, 158, 227); color: #000000; }
+.tool-details {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(167,139,250,0.24);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.2);
+}
+.tool-details-title {
+  margin-bottom: 6px;
+  color: rgba(255,255,255,0.45);
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tool-details pre {
+  max-height: 180px;
+  overflow: auto;
+  color: rgba(255,255,255,0.72);
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .thinking-row {
   display: flex;
   align-items: center;
   gap: 12px;
   animation: fadeUp 0.22s ease both;
 }
-.dots {
+.thinking-status {
   display: flex; gap: 5px; padding: 14px 18px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 4px 16px 16px 16px;
+}
+.tool-label {
+  margin-right: 8px;
+  color: rgba(255,255,255,0.62);
+  font-size: 12px;
+  line-height: 1;
+  align-self: center;
+  white-space: nowrap;
 }
 .dot {
   width: 6px; height: 6px;
@@ -250,6 +352,13 @@ body {
   color: #fff;
 }
 .send-btn:hover { transform: scale(1.07); box-shadow: 0 4px 14px rgba(108,92,231,0.5); }
+.send-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+.iteration-label {
+  color: rgba(255,255,255,0.45);
+  font-size: 12px;
+  white-space: nowrap;
+  padding-bottom: 9px;
+}
 .send-btn:active { transform: scale(0.96); }
 .send-btn:disabled {
   background: rgba(255,255,255,0.07);
@@ -282,16 +391,17 @@ body {
   transition: all 0.15s;
   border: 1px solid rgba(255,255,255,0.12);
 }
-.btn-yes {
-  background: rgba(255,255,255,0.09);
+.btn-no {
+  background: rgba(255, 255, 255, 0.09);
   color: #e8e8ed;
 }
-.btn-yes:hover { background: rgba(255,255,255,0.15); }
-.btn-no {
-  background: transparent;
-  color: rgba(255,255,255,0.4);
+.btn-yes {
+  background: rgba(255, 255, 255, 0.09);
+  color: #e8e8ed;
 }
-.btn-no:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.05); }
+.btn-yes:hover { background: rgb(53, 175, 72);color: rgb(15, 1, 1); }
+
+.btn-no:hover {  background: rgb(185, 43, 43);color: rgb(15, 1, 1); }
 @media (max-width: 1024px) {
   .btn-no {
     top: 107px;

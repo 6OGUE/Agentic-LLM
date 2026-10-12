@@ -1,18 +1,33 @@
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Iterator, Optional
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from executor import build_tool_registry, execute_tool, load_tools_schema
-from llm import MODEL, ask_llm
+from llm import (
+    AVAILABLE_MODELS,
+    ask_llm,
+    clear_api_key,
+    get_model,
+    has_api_key,
+    set_api_key,
+    set_model,
+)
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    clear_api_key()
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,6 +39,14 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
     confirmed: Optional[bool] = None
+
+
+class ApiKeyRequest(BaseModel):
+    api_key: str
+
+
+class ModelRequest(BaseModel):
+    model: str
 
 
 def _print_tool_result(tool_name: str, result: object) -> None:
@@ -92,7 +115,7 @@ def agent_events(user_message: str, confirmed: Optional[bool] = None) -> Iterato
         yield {
             "event": "llm_call",
             "iteration": iteration,
-            "model": MODEL,
+            "model": get_model(),
             "response": output,
         }
 
@@ -231,3 +254,36 @@ def chat(request: ChatRequest):
             yield json.dumps(event, ensure_ascii=False) + "\n"
 
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
+
+
+@app.get("/api-key/status")
+def api_key_status():
+    return {"configured": has_api_key()}
+
+
+@app.put("/api-key")
+def update_api_key(request: ApiKeyRequest):
+    if not request.api_key.strip():
+        return {"configured": has_api_key(), "error": "Enter an API key."}
+    set_api_key(request.api_key)
+    return {"configured": True}
+
+
+@app.delete("/api-key")
+def remove_api_key():
+    clear_api_key()
+    return {"configured": has_api_key()}
+
+
+@app.get("/model/status")
+def model_status():
+    return {"model": get_model(), "available": AVAILABLE_MODELS}
+
+
+@app.put("/model")
+def update_model(request: ModelRequest):
+    try:
+        set_model(request.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"model": get_model()}

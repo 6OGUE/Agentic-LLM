@@ -4,7 +4,7 @@
       "name": "read_file",
       "requires_confirmation": true,
       "description": "Reads the full content of a file from the given path.",
-      "module": "file_tools", 
+      "module": "tools.file_tools", 
       "parameters": {
         "type": "object",
         "properties": {
@@ -20,7 +20,7 @@
       "name": "write_file",
       "requires_confirmation": true,
       "description": "Writes content to a file at the given path. Overwrites existing content.",
-      "module": "file_tools",
+      "module": "tools.file_tools",
       "parameters": {
         "type": "object",
         "properties": {
@@ -40,7 +40,7 @@
       "name": "run_a_command",
       "requires_confirmation": true,
       "description": "Executes file related shell commands. Use this tool ONLY WHEN IT IS ABSOLUTELY NECESSARY. DO NOT USE IT OTHERWISE",
-      "module": "file_tools",
+      "module": "tools.command_tools",
       "parameters": {
         "type": "object",
         "properties": {
@@ -61,7 +61,7 @@
   "name": "rename_file",
   "requires_confirmation": true,
   "description": "Renames an existing file on the filesystem. Requires the full path to the current file and a distinct new filename.",
-  "module": "file_tools",
+  "module": "tools.file_tools",
   "parameters": {
     "type": "object",
     "properties": {
@@ -85,7 +85,7 @@
       "name": "search_the_internet",
       "requires_confirmation": true,
       "description": "Searches the web for a query and returns the main extracted text content from the most relevant result as plain text.",
-      "module": "browse_tools",
+      "module": "tools.browse_tools",
       "parameters": {
         "type": "object",
         "properties": {

@@ -12,7 +12,44 @@ from google.genai.errors import ServerError
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
-MODEL = "gemma-4-26b-a4b-it" #gemma-4-26b-a4b-it || gemini-3.5-flash-lite
+AVAILABLE_MODELS = (
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemma-4-26b-a4b-it",
+    "gemma-4-31b-it",
+)
+DEFAULT_MODEL = "gemma-4-26b-a4b-it"
+MODEL = DEFAULT_MODEL
+_api_key = None
+
+
+def set_api_key(api_key):
+    global _api_key
+    _api_key = api_key.strip() or None
+
+
+def clear_api_key():
+    global _api_key
+    _api_key = None
+
+
+def get_model() -> str:
+    return MODEL
+
+
+def set_model(model: str) -> None:
+    global MODEL
+    if model not in AVAILABLE_MODELS:
+        raise ValueError(f"Unsupported model: {model}")
+    MODEL = model
+
+
+def has_api_key() -> bool:
+    return bool(_api_key or os.environ.get("GOOGLE_API_KEY"))
 
 
 def build_llm_content(user_message, tools, require_tool_choice: bool = True) -> str:
@@ -34,7 +71,7 @@ def get_system_prompt() -> str:
 
 
 def get_client():
-    api_key = os.environ.get("GOOGLE_API_KEY")
+    api_key = _api_key or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY is not set. Add it to your environment or a .env file.")
     return genai.Client(api_key=api_key)

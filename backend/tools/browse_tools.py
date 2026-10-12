@@ -7,21 +7,14 @@ from ddgs import DDGS
 
 
 def normalize_words(text: str) -> list[str]:
-
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
 def score_url(query: str, url: str) -> int:
-  
-
     query_words = set(normalize_words(query))
-
     parsed = urlparse(url)
-
     url_text = f"{parsed.netloc} {parsed.path}"
-
     url_words = set(normalize_words(url_text))
-
     return len(query_words.intersection(url_words))
 
 
@@ -84,19 +77,13 @@ def extract_main_content(html: str) -> str:
 
             if len(text) > 200:
                 candidates.append(element)
+
     if candidates:
         best = max(
             candidates,
-            key=lambda element: len(
-                element.get_text(" ", strip=True)
-            ),
+            key=lambda element: len(element.get_text(" ", strip=True)),
         )
-
-        content = best.get_text(
-            "\n",
-            strip=True,
-        )
-
+        content = best.get_text("\n", strip=True)
     else:
         paragraphs = []
 

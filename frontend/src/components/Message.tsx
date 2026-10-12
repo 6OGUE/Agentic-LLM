@@ -9,6 +9,40 @@ interface MessageProps {
   onConfirm: (choice: boolean) => void;
 }
 
+const renderInlineText = (text: string) => text
+  .split(/(\*\*.+?\*\*)/g)
+  .map((segment, index) => (
+    segment.startsWith('**') && segment.endsWith('**')
+      ? <strong key={index}>{segment.slice(2, -2)}</strong>
+      : segment
+  ));
+
+const renderMessageText = (text: string) => {
+  const lines = text.split(/\r?\n/);
+
+  return lines.map((line, index) => {
+    const listItem = line.match(/^(\s*)(?:\d+\.|[-*+])\s+(.+)$/);
+
+    if (listItem) {
+      const indentation = listItem[1].replace(/\t/g, '  ').length;
+      const depth = Math.floor(indentation / 2);
+
+      return (
+        <div className="message-list-item" key={index} style={{ marginLeft: `${depth * 1.15}em` }}>
+          <span>{renderInlineText(listItem[2])}</span>
+        </div>
+      );
+    }
+
+    return (
+      <React.Fragment key={index}>
+        {renderInlineText(line)}
+        {index < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
+};
+
 const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -21,10 +55,10 @@ const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
   return (
     <div className={`msg-row ${message.role}`}>
       <div className={`avatar ${message.role}`}>
-        {message.role === 'agent' ? '✦' : 'U'}
+        {message.role === 'agent' ? '֎' : 'U'}
       </div>
       <div className={`bubble ${message.role}`}>
-        {message.text}
+        {renderMessageText(message.text)}
         {message.role === 'agent' && message.type === 'confirmation' && !message.answered && (
           <>
             <div className="confirm-actions">

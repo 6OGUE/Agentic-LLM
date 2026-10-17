@@ -37,6 +37,77 @@
       }
     },
     {
+    "name": "search_file",
+    "requires_confirmation": true,
+    "description": "Searches specified Windows drives, or all available drive letters if none are specified, for a file by name and optional extension. Returns the full path of the first matching file, or 'No file found' if no match exists.",
+    "module": "tools.file_tools",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The file name or filename prefix to search for, without the extension if using the extension parameter."
+        },
+        "drive": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of drive letters to search, such as ['C', 'D'] or ['C:', 'D:']. If omitted or null, searches all drive letters from C to Z."
+        },
+        "extension": {
+          "type": ["string", "null"],
+          "description": "Optional file extension without a leading dot, such as 'pdf', 'txt', or 'py'. If omitted or null, searches by filename prefix across extensions."
+        }
+      },
+      "required": ["name"]
+    },
+    "returns": {
+      "type": "string",
+      "description": "The full path of the first matching file, or 'No file found' if no match exists."
+    }
+  },
+   {
+    "name": "open_file",
+    "requires_confirmation": true,
+    "description": "Opens a file at the specified Windows path using its default associated application. Returns the file path if opened, or 'No such file found' if the path does not exist or is not a file.",
+    "module": "tools.file_tools",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "The full path to the file to open, such as 'C:\\\\Users\\\\User\\\\Documents\\\\report.pdf'."
+        }
+      },
+      "required": ["path"]
+    },
+    "returns": {
+      "type": "string",
+      "description": "A success message containing the file path if opened, or 'No such file found' if the path does not exist or is not a file."
+    }
+  },
+  {
+    "name": "open_an_app",
+    "requires_confirmation": true,
+    "description": "Launches a Windows executable (.exe) at the specified path. Returns the executable path if launched, or 'No such app found' if the path does not exist or does not point to an .exe file.",
+    "module": "tools.file_tools",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "The full path to the executable to launch, such as 'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe'."
+        }
+      },
+      "required": ["path"]
+    },
+    "returns": {
+      "type": "string",
+      "description": "A success message containing the executable path if launched, or 'No such app found' if the path does not exist or is not an .exe file."
+    }
+  },
+    {
       "name": "run_a_generic_command",
       "requires_confirmation": true,
       "description": "Use this tool only for simple general purpose command execution. Do not use it otherwise if the command is too complex or if there are other more suitable tools.",

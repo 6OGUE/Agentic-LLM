@@ -2,7 +2,7 @@ import subprocess
 from typing import Any
 
 
-def run_a_command(cmd: str) -> dict[str, Any]:
+def run_a_generic_command(cmd: str) -> dict[str, Any]:
     try:
         completed_process = subprocess.run(
             cmd,

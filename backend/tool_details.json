@@ -37,9 +37,9 @@
       }
     },
     {
-      "name": "run_a_command",
+      "name": "run_a_generic_command",
       "requires_confirmation": true,
-      "description": "Executes file related shell commands. Use this tool ONLY WHEN IT IS ABSOLUTELY NECESSARY. DO NOT USE IT OTHERWISE",
+      "description": "Use this tool only for simple general purpose command execution. Do not use it otherwise if the command is too complex or if there are other more suitable tools.",
       "module": "tools.command_tools",
       "parameters": {
         "type": "object",

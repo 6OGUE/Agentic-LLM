@@ -127,6 +127,26 @@
         "description": "Returns subprocess result object on success, error string on failure, or null if user denies execution."
       }
     },
+    {
+  "name": "run_a_vbs_script",
+  "requires_confirmation": true,
+  "description": "Use this tool to perform simple Windows GUI automation, such as launching applications, activating or switching windows, simulating keyboard input with SendKeys, typing text, and interacting with basic menus or dialogs. Prefer this tool when a task requires human-like  interactions that cannot be achieved with a simple shell command. ",
+  "module": "tools.command_tools",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script": {
+        "type": "string",
+        "description": "The full VBScript source code to execute, as a single string. It is written to a temporary .vbs file and run with cscript. Use WScript.Echo to produce output."
+      }
+    },
+    "required": ["script"]
+  },
+  "returns": {
+    "type": ["object", "string", "null"],
+    "description": "Returns subprocess result object (stdout, stderr, returncode) on success, error string on failure, or null if user denies execution."
+  }
+},
     
 {
   "name": "rename_file",

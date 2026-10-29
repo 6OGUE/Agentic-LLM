@@ -9,6 +9,17 @@ def read_file(path: str) -> str:
     file_path = Path(path)
     return file_path.read_text(encoding="utf-8")
 
+def list_files(path: str) -> str:
+    directory = Path(path)
+    entries = sorted(directory.iterdir(), key=lambda entry: entry.name.casefold())
+    if not entries:
+        return "Directory is empty."
+
+    return "\n".join(
+        f"{entry.name}{'/' if entry.is_dir() else ''}"
+        for entry in entries
+    )
+
 
 def write_file(path: str, content: str) -> str:
     file_path = Path(path)

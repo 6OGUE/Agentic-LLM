@@ -41,7 +41,7 @@ const InputBox: React.FC<InputBoxProps> = ({ input, onInputChange, onSend, onSto
         <button className="send-btn" onClick={loading ? onStop : onSend} disabled={!loading && !input.trim()} aria-label={loading ? 'Stop agent' : 'Send message'}>
           {loading ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="5" y="5" width="14" height="14" rx="1" />
+              <rect x="5" y="5" width="14" height="14" />
             </svg>
           ) : (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

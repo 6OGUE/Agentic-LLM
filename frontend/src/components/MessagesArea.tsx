@@ -25,7 +25,7 @@ const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, activeTo
     <div className="messages-area">
       {isEmpty ? (
         <div className="empty-state">
-          <div className="empty-icon">֎</div>
+          <div className="empty-icon">𖦹</div>
           <span className="empty-label">How can I help you today?</span>
         </div>
       ) : (
@@ -35,7 +35,7 @@ const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, activeTo
           ))}
           {loading && (
             <div className="thinking-row">
-              <div className="avatar agent">֎</div>
+              <div className="avatar agent">𖦹</div>
               <div className="thinking-status">
                 {activeTool && <span className="tool-label">Executing tool</span>}
                 <div className="dot" />

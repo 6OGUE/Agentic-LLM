@@ -19,7 +19,24 @@ interface HeaderProps {
   onModelChange: (value: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ autoAccept, onToggleAutoAccept, consoleOpen, onToggleConsole, apiKey, onApiKeyChange, apiKeyConfigured, apiKeyError, apiKeyBusy, onSaveApiKey, onClearApiKey, model, availableModels, modelError, modelBusy, onModelChange }) => {
+const Header: React.FC<HeaderProps> = ({
+  autoAccept,
+  onToggleAutoAccept,
+  consoleOpen,
+  onToggleConsole,
+  apiKey,
+  onApiKeyChange,
+  apiKeyConfigured,
+  apiKeyError,
+  apiKeyBusy,
+  onSaveApiKey,
+  onClearApiKey,
+  model,
+  availableModels,
+  modelError,
+  modelBusy,
+  onModelChange,
+}) => {
   const [keyEntryOpen, setKeyEntryOpen] = React.useState(false);
   const toggleConsole = () => {
     if (keyEntryOpen) setKeyEntryOpen(false);
@@ -33,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({ autoAccept, onToggleAutoAccept, console
 
   return (
     <div className="header">
-      <div className="header-dot" />
+      <div>𖦹</div>
       <span className="header-title">Agentic-Chat</span>
       <button className={`console-toggle${consoleOpen ? ' active' : ''}`} type="button" onClick={toggleConsole} aria-pressed={consoleOpen}>
         <span className="console-icon">&gt;_</span>
@@ -41,17 +58,21 @@ const Header: React.FC<HeaderProps> = ({ autoAccept, onToggleAutoAccept, console
       </button>
       <div className="api-key-control">
         <button className={`api-key-toggle${apiKeyConfigured ? ' configured' : ''}`} type="button" onClick={toggleApiKeyPanel} aria-expanded={keyEntryOpen}>
-          {apiKeyConfigured ? 'LLM Configured' : 'Configure LLM'}
+          {apiKeyConfigured ? 'Gemini configured' : 'Configure LLM'}
         </button>
         {keyEntryOpen && (
           <form className="api-key-panel" onSubmit={event => { event.preventDefault(); onSaveApiKey(); }}>
             <label className="model-control">
-              <span>Model</span>
-              <select value={model} onChange={event => onModelChange(event.target.value)} disabled={modelBusy || availableModels.length === 0} aria-label="Model" title={modelError || model}>
+              <span>Gemini model</span>
+              <select value={model} onChange={event => onModelChange(event.target.value)} disabled={modelBusy || availableModels.length === 0} aria-label="Gemini model" title={modelError || model}>
                 {availableModels.map(availableModel => <option key={availableModel} value={availableModel}>{availableModel}</option>)}
               </select>
             </label>
             {modelError && <div className="model-error" role="status">{modelError}</div>}
+            <div className="model-status">
+              <span></span>
+              <small></small>
+            </div>
             <label htmlFor="google-api-key">Google API key</label>
             <div className="api-key-entry">
               <input id="google-api-key" type="password" autoComplete="off" spellCheck={false} value={apiKey} onChange={event => onApiKeyChange(event.target.value)} placeholder="Paste API key" />
@@ -67,11 +88,7 @@ const Header: React.FC<HeaderProps> = ({ autoAccept, onToggleAutoAccept, console
       <label className={`auto-accept-label${autoAccept ? ' active' : ''}`}>
         Auto-accept
         <div className="toggle">
-          <input
-            type="checkbox"
-            checked={autoAccept}
-            onChange={e => onToggleAutoAccept(e.target.checked)}
-          />
+          <input type="checkbox" checked={autoAccept} onChange={event => onToggleAutoAccept(event.target.checked)} />
           <div className="toggle-track" />
           <div className="toggle-thumb" />
         </div>

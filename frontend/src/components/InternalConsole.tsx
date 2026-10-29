@@ -25,7 +25,11 @@ const formatValue = (value: unknown, indent = '', label = ''): string[] => {
 
 const formatEventDetails = (event: InternalEvent) => {
   const details = Object.entries(event).filter(([key, value]) => (
-    key !== 'event' && key !== 'iteration' && key !== 'status' && value !== undefined
+    key !== 'event'
+    && key !== 'iteration'
+    && key !== 'status'
+    && key !== 'duration_seconds'
+    && value !== undefined
   ));
 
   return details.flatMap(([key, value]) => (
@@ -55,9 +59,15 @@ const InternalConsole: React.FC<InternalConsoleProps> = ({ events, onClose }) =>
         ) : events.map((event, index) => (
           <div className="console-entry" key={`${event.event}-${index}`}>
             <div className="console-entry-title">
-              <span>{event.event === 'llm_call' ? 'LLM call' : event.event === 'tool_execution' ? 'Tool execution' : 'Agent response'}</span>
+              <span>{event.event === 'llm_call' ? 'LLM response' : event.event === 'tool_execution' ? 'Tool execution' : 'Agent response'}</span>
               {event.iteration && <small>iteration {event.iteration}</small>}
               {event.status && <small>{event.status}</small>}
+              {event.duration_seconds !== undefined && (
+                <small className="console-entry-duration">{event.duration_seconds.toFixed(2)} s</small>
+              )}
+              {event.event === 'tool_execution' && event.status === 'started' && (
+                <small className="console-entry-duration">in progress</small>
+              )}
             </div>
             {formatEventDetails(event) && <pre>{formatEventDetails(event)}</pre>}
           </div>

@@ -104,7 +104,24 @@ const App: React.FC = () => {
 
   return (
     <div className="app-shell">
-      <Header autoAccept={autoAccept} onToggleAutoAccept={setAutoAccept} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(open => !open)} apiKey={apiKey} onApiKeyChange={setApiKey} apiKeyConfigured={apiKeyConfigured} apiKeyError={apiKeyError} apiKeyBusy={apiKeyBusy} onSaveApiKey={onSaveApiKey} onClearApiKey={onClearApiKey} model={model} availableModels={availableModels} modelError={modelError} modelBusy={modelBusy} onModelChange={onModelChange} />
+      <Header
+        autoAccept={autoAccept}
+        onToggleAutoAccept={setAutoAccept}
+        consoleOpen={consoleOpen}
+        onToggleConsole={() => setConsoleOpen(open => !open)}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+        apiKeyConfigured={apiKeyConfigured}
+        apiKeyError={apiKeyError}
+        apiKeyBusy={apiKeyBusy}
+        onSaveApiKey={onSaveApiKey}
+        onClearApiKey={onClearApiKey}
+        model={model}
+        availableModels={availableModels}
+        modelError={modelError}
+        modelBusy={modelBusy}
+        onModelChange={onModelChange}
+      />
       {consoleOpen && <InternalConsole events={internalEvents} onClose={() => setConsoleOpen(false)} />}
       <MessagesArea messages={messages} loading={loading} activeTool={activeTool} onConfirm={handleConfirm} />
       <InputBox input={input} onInputChange={setInput} onSend={onSend} onStop={handleStop} iteration={iteration} loading={loading} />

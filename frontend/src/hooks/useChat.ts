@@ -11,6 +11,7 @@ export const useChat = (autoAccept: boolean) => {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const pendingUserMsg = useRef<string | null>(null);
   const pendingContinuation = useRef<string | null>(null);
+  const pendingTaskId = useRef<string | null>(null);
   const isConfirming = useRef(false);
   const requestInFlight = useRef(false);
   const abortController = useRef<AbortController | null>(null);
@@ -22,6 +23,7 @@ export const useChat = (autoAccept: boolean) => {
     isConfirmed?: boolean,
     continuation?: string,
     ownsRequest = true,
+    taskId?: string,
   ) => {
     const controller = new AbortController();
     abortController.current = controller;
@@ -30,7 +32,11 @@ export const useChat = (autoAccept: boolean) => {
       const res = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: continuation ?? userMsg, confirmed: isConfirmed }),
+        body: JSON.stringify({
+          message: continuation ?? userMsg,
+          confirmed: isConfirmed,
+          task_id: taskId,
+        }),
         signal: controller.signal,
       });
       if (!res.body) throw new Error('The chat response did not include a stream.');
@@ -46,7 +52,26 @@ export const useChat = (autoAccept: boolean) => {
         } else if ('event' in event && event.event === 'iteration') {
           setIteration(event.iteration);
         } else if ('event' in event && (event.event === 'llm_call' || event.event === 'tool_execution' || event.event === 'agent_response')) {
-          setInternalEvents(prev => [...prev, event]);
+          setInternalEvents(prev => {
+            if (event.event !== 'tool_execution' || event.status !== 'completed') {
+              return [...prev, event];
+            }
+
+            for (let index = prev.length - 1; index >= 0; index--) {
+              const previousEvent = prev[index];
+              if (
+                previousEvent.event === 'tool_execution'
+                && previousEvent.tool_name === event.tool_name
+                && previousEvent.status === 'started'
+              ) {
+                const next = [...prev];
+                next[index] = event;
+                return next;
+              }
+            }
+
+            return [...prev, event];
+          });
         } else {
           data = event;
         }
@@ -69,10 +94,11 @@ export const useChat = (autoAccept: boolean) => {
           isConfirming.current = true;
           pendingUserMsg.current = null;
           pendingContinuation.current = null;
-          await callApi(userMsg, true, data.continuation, false);
+          await callApi(userMsg, true, data.continuation, false, data.task_id);
         } else {
           pendingUserMsg.current = userMsg;
           pendingContinuation.current = data.continuation ?? userMsg;
+          pendingTaskId.current = data.task_id ?? null;
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg?.role === 'agent' && lastMsg.type === 'confirmation' && !lastMsg.answered) {
@@ -93,6 +119,7 @@ export const useChat = (autoAccept: boolean) => {
       } else {
         pendingUserMsg.current = null;
         pendingContinuation.current = null;
+        pendingTaskId.current = null;
         isConfirming.current = false;
         setMessages(prev => [
           ...prev,
@@ -135,6 +162,7 @@ export const useChat = (autoAccept: boolean) => {
     if (!originalMsg || requestInFlight.current) return;
     requestInFlight.current = true;
     const continuation = pendingContinuation.current ?? originalMsg;
+    const taskId = pendingTaskId.current ?? undefined;
 
     setMessages(prev => {
       const newMessages = [...prev];
@@ -152,12 +180,14 @@ export const useChat = (autoAccept: boolean) => {
       isConfirming.current = true;
       pendingUserMsg.current = null;
       pendingContinuation.current = null;
-      callApi(originalMsg, true, continuation);
+      pendingTaskId.current = null;
+      callApi(originalMsg, true, continuation, true, taskId);
     } else {
       isConfirming.current = true;
       pendingUserMsg.current = null;
       pendingContinuation.current = null;
-      callApi(originalMsg, false, continuation);
+      pendingTaskId.current = null;
+      callApi(originalMsg, false, continuation, true, taskId);
     }
   };
 

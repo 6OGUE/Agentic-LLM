@@ -5,5 +5,4 @@ pydantic
 google-genai
 python-dotenv
 beautifulsoup4
-requests
 ddgs

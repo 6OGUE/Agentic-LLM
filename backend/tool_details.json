@@ -1,6 +1,26 @@
 {
   "tools": [
     {
+      "name": "list_files",
+      "requires_confirmation": true,
+      "description": "Lists all files and folders directly inside the specified directory. Folder names end with a slash.",
+      "module": "tools.file_tools",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The absolute or relative path to the directory to list."
+          }
+        },
+        "required": ["path"]
+      },
+      "returns": {
+        "type": "string",
+        "description": "A sorted list of file and folder names in the directory, or a message if the directory is empty."
+      }
+    },
+    {
       "name": "read_file",
       "requires_confirmation": true,
       "description": "Reads the full content of a file from the given path.",

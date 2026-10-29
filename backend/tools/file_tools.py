@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional
 import subprocess
 import os
+import re
 
 
 
@@ -26,6 +27,51 @@ def write_file(path: str, content: str) -> str:
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(content, encoding="utf-8")
     return "written successfully"
+
+
+def do_a_targetted_edit(path: str, line_range: str, content: str) -> str:
+    match = re.fullmatch(r"\s*(\d+)\s*,\s*(\d+)\s*", line_range)
+    if not match:
+        raise ValueError("Line range must use the format 'start,end', such as '2,5'.")
+
+    start_line, end_line = (int(value) for value in match.groups())
+    if start_line < 1 or end_line < start_line:
+        raise ValueError("Line range must be a valid 1-based inclusive range.")
+
+    file_path = Path(path)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"File does not exist: {file_path}")
+
+    with file_path.open("r", encoding="utf-8", newline="") as source_file:
+        original = source_file.read()
+
+    lines = original.splitlines(keepends=True)
+    if end_line > len(lines):
+        raise ValueError(
+            f"Line range ends at {end_line}, but the file has {len(lines)} lines."
+        )
+
+    newline = "\r\n" if "\r\n" in original else "\n"
+    replacement = content.replace("\r\n", "\n").replace("\r", "\n")
+    replacement = replacement.replace("\n", newline)
+    has_following_lines = end_line < len(lines)
+    original_has_final_newline = original.endswith(("\n", "\r"))
+    if (
+        replacement
+        and not replacement.endswith(("\n", "\r"))
+        and (has_following_lines or original_has_final_newline)
+    ):
+        replacement += newline
+
+    updated = (
+        "".join(lines[:start_line - 1])
+        + replacement
+        + "".join(lines[end_line:])
+    )
+    with file_path.open("w", encoding="utf-8", newline="") as target_file:
+        target_file.write(updated)
+
+    return f"Replaced lines {start_line}-{end_line} in '{file_path}'."
 
 
 def rename_file(path: str, new_name: str) -> str:

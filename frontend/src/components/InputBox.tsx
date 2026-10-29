@@ -35,7 +35,7 @@ const InputBox: React.FC<InputBoxProps> = ({ input, onInputChange, onSend, onSto
           value={input}
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the agent to do something…"
+          placeholder="Start Typing..."
         />
         {loading && <span className="iteration-label"> {iteration}</span>}
         <button className="send-btn" onClick={loading ? onStop : onSend} disabled={!loading && !input.trim()} aria-label={loading ? 'Stop agent' : 'Send message'}>

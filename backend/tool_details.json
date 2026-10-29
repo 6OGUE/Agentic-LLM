@@ -2,6 +2,8 @@
   "tools": [
     {
       "name": "list_files",
+      "display_name": "list files",
+      "confirmed_message": "Listed files",
       "requires_confirmation": true,
       "description": "Lists all files and folders directly inside the specified directory. Folder names end with a slash.",
       "module": "tools.file_tools",
@@ -22,6 +24,8 @@
     },
     {
       "name": "read_file",
+      "display_name": "read files",
+      "confirmed_message": "Read files",
       "requires_confirmation": true,
       "description": "Reads the full content of a file from the given path.",
       "module": "tools.file_tools", 
@@ -38,6 +42,8 @@
     },
     {
       "name": "write_file",
+      "display_name": "write a file",
+      "confirmed_message": "Wrote a file",
       "requires_confirmation": true,
       "description": "Writes content to a file at the given path. Overwrites existing content.",
       "module": "tools.file_tools",
@@ -57,7 +63,39 @@
       }
     },
     {
+      "name": "do_a_targetted_edit",
+      "display_name": "do a targetted edit",
+      "confirmed_message": "Did a targetted edit",
+      "requires_confirmation": true,
+      "description": "Replaces only the specified 1-based inclusive line range in an existing file.",
+      "module": "tools.file_tools",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute or relative path to the existing file."
+          },
+          "line_range": {
+            "type": "string",
+            "description": "Inclusive 1-based start and end line numbers as 'start,end', for example '2,5'."
+          },
+          "content": {
+            "type": "string",
+            "description": "Replacement text for the specified lines."
+          }
+        },
+        "required": ["path", "line_range", "content"]
+      },
+      "returns": {
+        "type": "string",
+        "description": "A message confirming which lines were replaced."
+      }
+    },
+    {
     "name": "search_file",
+    "display_name": "search for a file",
+    "confirmed_message": "Searched for a file",
     "requires_confirmation": true,
     "description": "Searches specified Windows drives, or all available drive letters if none are specified, for a file by name and optional extension. Returns the full path of the first matching file, or 'No file found' if no match exists.",
     "module": "tools.file_tools",
@@ -89,6 +127,8 @@
   },
    {
     "name": "open_file",
+    "display_name": "open a file",
+    "confirmed_message": "Opened a file",
     "requires_confirmation": true,
     "description": "Opens a file at the specified Windows path using its default associated application. Returns the file path if opened, or 'No such file found' if the path does not exist or is not a file.",
     "module": "tools.file_tools",
@@ -109,6 +149,8 @@
   },
   {
     "name": "open_an_app",
+    "display_name": "open an app",
+    "confirmed_message": "Opened an app",
     "requires_confirmation": true,
     "description": "Launches a Windows executable (.exe) at the specified path. Returns the executable path if launched, or 'No such app found' if the path does not exist or does not point to an .exe file.",
     "module": "tools.file_tools",
@@ -129,6 +171,8 @@
   },
     {
       "name": "run_a_generic_command",
+      "display_name": "run a command",
+      "confirmed_message": "Ran a command",
       "requires_confirmation": true,
       "description": "Use this tool only for simple general purpose command execution. Do not use it otherwise if the command is too complex or if there are other more suitable tools.",
       "module": "tools.command_tools",
@@ -149,6 +193,8 @@
     },
     {
   "name": "run_a_vbs_script",
+  "display_name": "run a script",
+  "confirmed_message": "Ran a script",
   "requires_confirmation": true,
   "description": "Use this tool to perform simple Windows GUI automation, such as launching applications, activating or switching windows, simulating keyboard input with SendKeys, typing text, and interacting with basic menus or dialogs. Prefer this tool when a task requires human-like  interactions that cannot be achieved with a simple shell command. ",
   "module": "tools.command_tools",
@@ -170,6 +216,8 @@
     
 {
   "name": "rename_file",
+  "display_name": "rename a file",
+  "confirmed_message": "Renamed a file",
   "requires_confirmation": true,
   "description": "Renames an existing file on the filesystem. Requires the full path to the current file and a distinct new filename.",
   "module": "tools.file_tools",
@@ -194,6 +242,8 @@
 
     {
       "name": "search_the_internet",
+      "display_name": "search the internet",
+      "confirmed_message": "Searched the internet",
       "requires_confirmation": true,
       "description": "Searches the web for a query and returns the main extracted text content from the most relevant result as plain text.",
       "module": "tools.browse_tools",

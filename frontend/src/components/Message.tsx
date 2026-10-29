@@ -55,7 +55,11 @@ const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
   return (
     <div className={`msg-row ${message.role}`}>
       <div className={`avatar ${message.role}`}>
-        {message.role === 'agent' ? '֎' : 'U'}
+        {message.role === 'agent' ? (
+  <span style={{ fontSize: '23px' }}>𖦹</span>
+) : (
+  <span style={{ fontSize: '23px' }}>🗣</span>
+)}
       </div>
       <div className={`bubble ${message.role}`}>
         {renderMessageText(message.text)}

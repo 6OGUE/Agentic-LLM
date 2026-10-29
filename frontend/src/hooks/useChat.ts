@@ -3,9 +3,16 @@ import type { ChatResponse, InternalEvent, IterationEvent, ToolCallEvent } from 
 
 type Message =
   | { role: 'user' | 'agent'; text: string; type?: 'normal' }
-  | { role: 'agent'; type: 'confirmation'; text: string; answered: boolean; toolArgs?: unknown };
+  | {
+    role: 'agent';
+    type: 'confirmation';
+    text: string;
+    answered: boolean;
+    toolArgs?: unknown;
+    confirmedMessage?: string;
+  };
 
-export const useChat = (autoAccept: boolean) => {
+export const useChat = (autoAccept: boolean, customInstruction: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -36,6 +43,7 @@ export const useChat = (autoAccept: boolean) => {
           message: continuation ?? userMsg,
           confirmed: isConfirmed,
           task_id: taskId,
+          custom_instruction: customInstruction,
         }),
         signal: controller.signal,
       });
@@ -112,6 +120,7 @@ export const useChat = (autoAccept: boolean) => {
                 text: data.message ?? 'Confirm?',
                 answered: false,
                 toolArgs: data.tool_args,
+                confirmedMessage: data.confirmed_message,
               },
             ];
           });
@@ -169,7 +178,11 @@ export const useChat = (autoAccept: boolean) => {
       for (let i = newMessages.length - 1; i >= 0; i--) {
         const m = newMessages[i];
         if (m.role === 'agent' && m.type === 'confirmation' && !m.answered) {
-          newMessages[i] = { ...m, answered: true };
+          newMessages[i] = {
+            ...m,
+            answered: true,
+            text: choice ? m.confirmedMessage ?? m.text : m.text,
+          };
           break;
         }
       }

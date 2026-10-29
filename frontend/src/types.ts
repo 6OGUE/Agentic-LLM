@@ -2,6 +2,7 @@ export interface ChatResponse {
   status: "success" | "requires_confirmation" | "error";
   response?: string;       // Final answer
   message?: string;        // Confirmation message
+  confirmed_message?: string; // Past-tense message after approval
   tool_name?: string;      // Tool requesting permission
   tool_args?: any;
   continuation?: string;   // Follow-up context for the next confirmed tool

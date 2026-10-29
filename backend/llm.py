@@ -3,7 +3,6 @@ import os
 import time
 from pathlib import Path
 from typing import Any
-
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -18,10 +17,7 @@ AVAILABLE_MODELS = (
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.6-flash",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash",
     "gemma-4-26b-a4b-it",
-    "gemma-4-31b-it",
 )
 DEFAULT_MODEL = "gemini-3.1-flash-lite"
 MODEL = DEFAULT_MODEL
@@ -66,9 +62,29 @@ def build_llm_content(
             "tool Compulsorily."
         )
 
+    tool_details = []
+    for tool in tools:
+        parameters = tool.get("parameters", {}).get("properties", {})
+        required = tool.get("parameters", {}).get("required", [])
+        parameter_names = [
+            name if name in required else f"{name}?"
+            for name in parameters
+        ]
+        signature = f"{tool['name']}({', '.join(parameter_names)})"
+        details = [
+            f"{name}:{parameter.get('description', '')}"
+            for name, parameter in parameters.items()
+        ]
+        description = tool.get("description", "")
+        tool_details.append(
+            f"{signature} : {description}"
+            + (f" {' '.join(details)}" if details else "")
+        )
+
     return f"""
 {content}
-Available tools:{json.dumps(tools, indent=2)}
+Available tools:
+{chr(10).join(tool_details)}
 """
 
 
@@ -121,6 +137,7 @@ def ask_llm(
     tools: list[dict[str, Any]],
     max_retries: int = 3,
     require_tool_choice: bool = True,
+    custom_system_prompt: str = "",
 ) -> dict[str, Any]:
     content = build_llm_content(
         user_message,
@@ -129,6 +146,8 @@ def ask_llm(
     )
     client = get_client()
     system_prompt = get_system_prompt()
+    if custom_system_prompt.strip():
+        system_prompt = f"{system_prompt.rstrip()}\n\n{custom_system_prompt.strip()}"
     last_error: Exception | None = None
 
     for attempt in range(max_retries):

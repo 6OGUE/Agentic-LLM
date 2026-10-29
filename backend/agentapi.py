@@ -43,6 +43,7 @@ class ChatRequest(BaseModel):
     message: str
     confirmed: Optional[bool] = None
     task_id: Optional[str] = None
+    custom_instruction: str = ""
 
 
 class ApiKeyRequest(BaseModel):
@@ -58,6 +59,7 @@ class PendingAgentTask:
     available_tools: list[dict[str, Any]]
     registry: dict[str, Any]
     user_message: str
+    custom_instruction: str
     iteration: int
     require_tool_choice: bool
     last_read_path: Optional[str]
@@ -158,6 +160,7 @@ def agent_events(
     user_message: str,
     confirmed: Optional[bool] = None,
     task_id: Optional[str] = None,
+    custom_instruction: str = "",
 ) -> Iterator[dict]:
     request_started = time.perf_counter()
     if task_id:
@@ -171,6 +174,7 @@ def agent_events(
         available_tools = pending_task.available_tools
         registry = pending_task.registry
         user_message = pending_task.user_message
+        custom_instruction = pending_task.custom_instruction
         iteration = pending_task.iteration
         require_tool_choice = pending_task.require_tool_choice
         last_read_path = pending_task.last_read_path
@@ -205,6 +209,7 @@ def agent_events(
                 user_message,
                 available_tools,
                 require_tool_choice=require_tool_choice and bool(available_tools),
+                custom_system_prompt=custom_instruction,
             )
             yield {
                 "event": "llm_call",
@@ -298,6 +303,7 @@ def agent_events(
                     available_tools=available_tools,
                     registry=registry,
                     user_message=user_message,
+                    custom_instruction=custom_instruction,
                     iteration=iteration,
                     require_tool_choice=require_tool_choice,
                     last_read_path=last_read_path,
@@ -311,7 +317,8 @@ def agent_events(
                 "status": "requires_confirmation",
                 "tool_name": tool_name,
                 "tool_args": tool_args,
-                "message": f"Can I {tool_name.replace('_', ' ')}?",
+                "message": f"Can I {current_tool.get('display_name', tool_name.replace('_', ' '))}?",
+                "confirmed_message": current_tool.get("confirmed_message"),
                 "continuation": user_message,
                 "task_id": pending_id,
             }
@@ -383,6 +390,7 @@ def chat(request: ChatRequest):
             request.message,
             confirmed=request.confirmed,
             task_id=request.task_id,
+            custom_instruction=request.custom_instruction,
         ):
             yield json.dumps(event, ensure_ascii=False) + "\n"
 

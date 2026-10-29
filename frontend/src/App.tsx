@@ -10,6 +10,7 @@ const App: React.FC = () => {
   const [input, setInput] = useState('');
   const [autoAccept, setAutoAccept] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [apiKeyError, setApiKeyError] = useState('');
@@ -18,7 +19,7 @@ const App: React.FC = () => {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelError, setModelError] = useState('');
   const [modelBusy, setModelBusy] = useState(false);
-  const { messages, loading, activeTool, iteration, internalEvents, handleSend, handleStop, handleConfirm } = useChat(autoAccept);
+  const { messages, loading, activeTool, iteration, internalEvents, handleSend, handleStop, handleConfirm } = useChat(autoAccept, customInstruction);
 
   useEffect(() => {
     fetch('http://localhost:8000/api-key/status')
@@ -109,6 +110,8 @@ const App: React.FC = () => {
         onToggleAutoAccept={setAutoAccept}
         consoleOpen={consoleOpen}
         onToggleConsole={() => setConsoleOpen(open => !open)}
+        customInstruction={customInstruction}
+        onCustomInstructionChange={setCustomInstruction}
         apiKey={apiKey}
         onApiKeyChange={setApiKey}
         apiKeyConfigured={apiKeyConfigured}

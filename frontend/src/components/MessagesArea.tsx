@@ -26,7 +26,7 @@ const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, activeTo
       {isEmpty ? (
         <div className="empty-state">
           <div className="empty-icon">𖦹</div>
-          <span className="empty-label">How can I help you today?</span>
+          <span className="empty-label">Ready Now?</span>
         </div>
       ) : (
         <>

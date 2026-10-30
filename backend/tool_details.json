@@ -27,7 +27,7 @@
       "display_name": "read files",
       "confirmed_message": "Read files",
       "requires_confirmation": true,
-      "description": "Reads the full content of a file from the given path.",
+      "description": "Reads the full content of a file from the given path. Only Supports text based files",
       "module": "tools.file_tools", 
       "parameters": {
         "type": "object",
@@ -45,7 +45,7 @@
       "display_name": "write a file",
       "confirmed_message": "Wrote a file",
       "requires_confirmation": true,
-      "description": "Writes content to a file at the given path. Overwrites existing content.",
+      "description": "Writes content to a file at the given path. Overwrites existing content. Only Supports text based files.",
       "module": "tools.file_tools",
       "parameters": {
         "type": "object",
@@ -67,7 +67,7 @@
       "display_name": "do a targetted edit",
       "confirmed_message": "Did a targetted edit",
       "requires_confirmation": true,
-      "description": "Replaces only the specified 1-based inclusive line range in an existing file.",
+      "description": "Replaces only the specified 1-based inclusive line range in an existing file. Only Supports text based files",
       "module": "tools.file_tools",
       "parameters": {
         "type": "object",

@@ -7,6 +7,7 @@ interface HeaderProps {
   onToggleConsole: () => void;
   customInstruction: string;
   onCustomInstructionChange: (value: string) => void;
+  customInstructionStatus: string;
   apiKey: string;
   onApiKeyChange: (value: string) => void;
   apiKeyConfigured: boolean;
@@ -28,6 +29,7 @@ const Header: React.FC<HeaderProps> = ({
   onToggleConsole,
   customInstruction,
   onCustomInstructionChange,
+  customInstructionStatus,
   apiKey,
   onApiKeyChange,
   apiKeyConfigured,
@@ -94,6 +96,7 @@ const Header: React.FC<HeaderProps> = ({
                 placeholder="Add instructions for the assistant..."
                 rows={10}
               />
+              <div className="model-status" role="status">{customInstructionStatus}</div>
             </section>
           </div>
         )}

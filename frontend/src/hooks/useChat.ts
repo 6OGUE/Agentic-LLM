@@ -99,6 +99,15 @@ export const useChat = (autoAccept: boolean, customInstruction: string) => {
 
       if (data.status === 'requires_confirmation') {
         if (autoAccept) {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'agent',
+              type: 'confirmation',
+              text: data.confirmed_message ?? data.message ?? 'Confirmed.',
+              answered: true,
+            },
+          ]);
           isConfirming.current = true;
           pendingUserMsg.current = null;
           pendingContinuation.current = null;

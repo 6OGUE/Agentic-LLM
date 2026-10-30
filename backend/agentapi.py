@@ -24,10 +24,15 @@ from llm import (
 )
 
 
+_custom_instruction = ""
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    global _custom_instruction
     yield
     clear_api_key()
+    _custom_instruction = ""
 
 
 app = FastAPI(lifespan=lifespan)
@@ -43,11 +48,15 @@ class ChatRequest(BaseModel):
     message: str
     confirmed: Optional[bool] = None
     task_id: Optional[str] = None
-    custom_instruction: str = ""
+    custom_instruction: Optional[str] = None
 
 
 class ApiKeyRequest(BaseModel):
     api_key: str
+
+
+class CustomInstructionRequest(BaseModel):
+    custom_instruction: str
 
 
 class ModelRequest(BaseModel):
@@ -182,6 +191,7 @@ def agent_events(
         last_tool_call = pending_task.last_tool_call
         pending_tool_call: Optional[tuple[str, dict]] = pending_task.pending_tool_call
     else:
+        custom_instruction = _custom_instruction
         tools_schema = load_tools_schema("tool_details.json")
         registry = build_tool_registry(tools_schema)
         available_tools = tools_schema
@@ -385,16 +395,32 @@ def agent(user_message: str, confirmed: Optional[bool] = None):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+    if request.custom_instruction is not None:
+        update_custom_instruction(
+            CustomInstructionRequest(custom_instruction=request.custom_instruction)
+        )
+
     def event_stream():
         for event in agent_events(
             request.message,
             confirmed=request.confirmed,
             task_id=request.task_id,
-            custom_instruction=request.custom_instruction,
         ):
             yield json.dumps(event, ensure_ascii=False) + "\n"
 
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
+
+
+@app.get("/custom-instruction")
+def get_custom_instruction():
+    return {"custom_instruction": _custom_instruction}
+
+
+@app.put("/custom-instruction")
+def update_custom_instruction(request: CustomInstructionRequest):
+    global _custom_instruction
+    _custom_instruction = request.custom_instruction
+    return {"custom_instruction": _custom_instruction}
 
 
 @app.get("/api-key/status")

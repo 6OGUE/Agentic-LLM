@@ -154,7 +154,6 @@ def search_the_internet(query: str) -> str:
         )
 
         response.raise_for_status()
-        return extract_main_content(response.text)
-
+        return f"Internet search returned content: {extract_main_content(response.text)}"
     except (requests.RequestException, Exception):
         return ""

@@ -188,7 +188,7 @@
       },
       "returns": {
         "type": ["object", "string", "null"],
-        "description": "Returns subprocess result object on success, error string on failure, or null if user denies execution."
+        "description": "Returns an object containing a status message, stdout, stderr, and return code. Successful commands with no stdout or stderr are identified as executed successfully with no output. Execution exceptions are included in the message and stderr."
       }
     },
     {
@@ -210,7 +210,7 @@
   },
   "returns": {
     "type": ["object", "string", "null"],
-    "description": "Returns subprocess result object (stdout, stderr, returncode) on success, error string on failure, or null if user denies execution."
+    "description": "Returns an object containing a status message, stdout, stderr, and return code. Successful scripts with no stdout or stderr are identified as executed successfully with no output. Execution exceptions are included in the message and stderr."
   }
 },
     

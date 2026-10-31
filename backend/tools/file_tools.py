@@ -4,29 +4,30 @@ import subprocess
 import os
 import re
 
-
-
 def read_file(path: str) -> str:
     file_path = Path(path)
-    return file_path.read_text(encoding="utf-8")
+    content = file_path.read_text(encoding="utf-8")
+    return f"read file - {file_path} contains the following content: {content}"
 
 def list_files(path: str) -> str:
     directory = Path(path)
     entries = sorted(directory.iterdir(), key=lambda entry: entry.name.casefold())
     if not entries:
-        return "Directory is empty."
+        content = "Directory is empty."
+    else:
+        content = "\n".join(
+            f"{entry.name}{'/' if entry.is_dir() else ''}"
+            for entry in entries
+        )
 
-    return "\n".join(
-        f"{entry.name}{'/' if entry.is_dir() else ''}"
-        for entry in entries
-    )
+    return f"Here is the list of files in the path {directory}: {content}"
 
 
 def write_file(path: str, content: str) -> str:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(content, encoding="utf-8")
-    return "written successfully"
+    return f"written the content successfully to {file_path}"
 
 
 def do_a_targetted_edit(path: str, line_range: str, content: str) -> str:
@@ -71,7 +72,7 @@ def do_a_targetted_edit(path: str, line_range: str, content: str) -> str:
     with file_path.open("w", encoding="utf-8", newline="") as target_file:
         target_file.write(updated)
 
-    return f"Replaced lines {start_line}-{end_line} in '{file_path}'."
+    return f"targetted edit done to the file {file_path}"
 
 
 def rename_file(path: str, new_name: str) -> str:
@@ -86,7 +87,7 @@ def rename_file(path: str, new_name: str) -> str:
         raise FileExistsError(f"Destination file already exists: {destination}")
 
     source.rename(destination)
-    return f"Renamed '{source}' to '{destination}'."
+    return f"renamed the file {source} to {destination}"
 
 
 
@@ -121,7 +122,11 @@ def search_file(
         if result.stdout.strip():
             results.extend(result.stdout.strip().splitlines())
 
-    return "\n".join(results) if results else "No file found"
+    return (
+        "\n".join(f"file found at {location}" for location in results)
+        if results
+        else "No file found"
+    )
 
 
 def open_an_app(path: str) -> str:

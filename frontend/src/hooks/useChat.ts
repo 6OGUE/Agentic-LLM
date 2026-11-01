@@ -1,5 +1,11 @@
 import { useState, useRef } from 'react';
-import type { ChatResponse, InternalEvent, IterationEvent, ToolCallEvent } from '../types';
+import type {
+  ChatResponse,
+  CustomInstructionEvent,
+  InternalEvent,
+  IterationEvent,
+  ToolCallEvent,
+} from '../types';
 
 type Message =
   | { role: 'user' | 'agent'; text: string; type?: 'normal' }
@@ -8,11 +14,66 @@ type Message =
     type: 'confirmation';
     text: string;
     answered: boolean;
+    toolName?: string;
     toolArgs?: unknown;
+    toolNames?: string[];
+    toolDisplayNames?: Record<string, string>;
     confirmedMessage?: string;
   };
 
-export const useChat = (autoAccept: boolean, customInstruction: string) => {
+const getBatchToolNames = (toolArgs: unknown): string[] => {
+  if (!toolArgs || typeof toolArgs !== 'object' || !('operations' in toolArgs)) {
+    return [];
+  }
+
+  const operations = toolArgs.operations;
+  if (!Array.isArray(operations)) return [];
+
+  return operations.map(operation => (
+    operation && typeof operation === 'object' && 'tool' in operation
+      && typeof operation.tool === 'string'
+      ? operation.tool
+      : 'Invalid operation'
+  ));
+};
+
+const getConfirmationMessages = (
+  toolName: string | undefined,
+  toolArgs: unknown,
+  message: string | undefined,
+  confirmedMessage: string | undefined,
+  toolDisplayNames: Record<string, string> | undefined,
+) => {
+  if (toolName !== 'run_tool_batch') {
+    return {
+      text: message ?? 'Confirm?',
+      confirmedMessage,
+      toolDisplayNames,
+    };
+  }
+
+  const toolNames = getBatchToolNames(toolArgs);
+  if (toolNames.length === 0) {
+    return {
+      text: message ?? 'Confirm this batch of tools?',
+      confirmedMessage,
+      toolDisplayNames,
+    };
+  }
+
+  return {
+    text: 'Tools required:',
+    toolNames,
+    toolDisplayNames,
+    confirmedMessage: 'Tools Executed:',
+  };
+};
+
+export const useChat = (
+  autoAccept: boolean,
+  customInstruction: string,
+  onCustomInstructionChange: (instruction: string) => void,
+) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -54,11 +115,19 @@ export const useChat = (autoAccept: boolean, customInstruction: string) => {
       let buffer = '';
       let data: ChatResponse | null = null;
 
-      const processEvent = (event: ChatResponse | InternalEvent | ToolCallEvent | IterationEvent) => {
+      const processEvent = (
+        event: ChatResponse
+          | CustomInstructionEvent
+          | InternalEvent
+          | ToolCallEvent
+          | IterationEvent,
+      ) => {
         if ('event' in event && event.event === 'tool_call') {
           setActiveTool(event.tool_name);
         } else if ('event' in event && event.event === 'iteration') {
           setIteration(event.iteration);
+        } else if ('event' in event && event.event === 'custom_instruction') {
+          onCustomInstructionChange(event.custom_instruction);
         } else if ('event' in event && (event.event === 'llm_call' || event.event === 'tool_execution' || event.event === 'agent_response')) {
           setInternalEvents(prev => {
             if (event.event !== 'tool_execution' || event.status !== 'completed') {
@@ -98,14 +167,24 @@ export const useChat = (autoAccept: boolean, customInstruction: string) => {
       if (!data) throw new Error('The chat response did not include a final event.');
 
       if (data.status === 'requires_confirmation') {
+        const confirmation = getConfirmationMessages(
+          data.tool_name,
+          data.tool_args,
+          data.message,
+          data.confirmed_message,
+          data.tool_display_names,
+        );
         if (autoAccept) {
           setMessages(prev => [
             ...prev,
             {
               role: 'agent',
               type: 'confirmation',
-              text: data.confirmed_message ?? data.message ?? 'Confirmed.',
+              text: confirmation.confirmedMessage ?? confirmation.text,
               answered: true,
+              toolName: data.tool_name,
+              toolNames: confirmation.toolNames,
+              toolDisplayNames: confirmation.toolDisplayNames,
             },
           ]);
           isConfirming.current = true;
@@ -126,10 +205,13 @@ export const useChat = (autoAccept: boolean, customInstruction: string) => {
               {
                 role: 'agent',
                 type: 'confirmation',
-                text: data.message ?? 'Confirm?',
+                text: confirmation.text,
                 answered: false,
+                toolName: data.tool_name,
                 toolArgs: data.tool_args,
-                confirmedMessage: data.confirmed_message,
+                toolNames: confirmation.toolNames,
+                toolDisplayNames: confirmation.toolDisplayNames,
+                confirmedMessage: confirmation.confirmedMessage,
               },
             ];
           });

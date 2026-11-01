@@ -21,7 +21,11 @@ const App: React.FC = () => {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelError, setModelError] = useState('');
   const [modelBusy, setModelBusy] = useState(false);
-  const { messages, loading, activeTool, iteration, internalEvents, handleSend, handleStop, handleConfirm } = useChat(autoAccept, customInstruction);
+  const { messages, loading, activeTool, iteration, internalEvents, handleSend, handleStop, handleConfirm } = useChat(
+    autoAccept,
+    customInstruction,
+    setCustomInstruction,
+  );
 
   useEffect(() => {
     fetch('http://localhost:8000/custom-instruction')
@@ -64,7 +68,7 @@ const App: React.FC = () => {
           body: JSON.stringify({ custom_instruction: customInstruction }),
         });
         if (!response.ok) throw new Error('Could not save custom instruction.');
-        setCustomInstructionStatus('Saved');
+        setCustomInstructionStatus('Autosaved');
       } catch (error) {
         setCustomInstructionStatus(error instanceof Error ? error.message : 'Could not save custom instruction.');
       }

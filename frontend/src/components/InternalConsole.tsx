@@ -58,7 +58,7 @@ const InternalConsole: React.FC<InternalConsoleProps> = ({ events, onClose }) =>
         </div>
         <div className="console-output">
           {events.length === 0 ? (
-            <div className="console-empty">Waiting for an agent call...</div>
+            <div className="console-empty">No Agent Calls Yet</div>
           ) : events.map((event, index) => (
             <div className="console-entry" key={`${event.event}-${index}`}>
               <div className="console-entry-title">

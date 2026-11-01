@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Optional
-
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +24,41 @@ from llm import (
 
 
 _custom_instruction = ""
+
+
+def _append_memory_entry(instruction: str, memory: str) -> str:
+    existing_memories = {
+        line.strip().casefold()
+        for line in instruction.splitlines()
+        if line.strip()
+    }
+    if memory.casefold() in existing_memories:
+        return instruction
+
+    instruction = instruction.rstrip()
+    if instruction:
+        instruction += "\n"
+    return f"{instruction}{memory}"
+
+
+def _remember_memory(memory: Any) -> Optional[str]:
+    global _custom_instruction
+
+    if memory is None:
+        return None
+    if not isinstance(memory, str):
+        print("Ignoring non-string memory returned by the model.")
+        return None
+
+    memory = " ".join(memory.split())
+    if not memory:
+        return None
+
+    updated_instruction = _append_memory_entry(_custom_instruction, memory)
+    if updated_instruction == _custom_instruction:
+        return None
+    _custom_instruction = updated_instruction
+    return _custom_instruction
 
 
 @asynccontextmanager
@@ -221,6 +255,17 @@ def agent_events(
                 require_tool_choice=require_tool_choice and bool(available_tools),
                 custom_system_prompt=custom_instruction,
             )
+            updated_instruction = (
+                _remember_memory(output.get("memory"))
+                if isinstance(output, dict)
+                else None
+            )
+            if updated_instruction is not None:
+                custom_instruction = updated_instruction
+                yield {
+                    "event": "custom_instruction",
+                    "custom_instruction": updated_instruction,
+                }
             yield {
                 "event": "llm_call",
                 "iteration": iteration,
@@ -285,6 +330,35 @@ def agent_events(
             return
 
         if not any(tool["name"] == tool_name for tool in available_tools):
+            batch_tool = next(
+                (
+                    tool for tool in available_tools
+                    if tool.get("name") == "run_tool_batch"
+                ),
+                None,
+            )
+            supported_batch_tools = (
+                batch_tool.get("parameters", {})
+                .get("properties", {})
+                .get("operations", {})
+                .get("items", {})
+                .get("properties", {})
+                .get("tool", {})
+                .get("enum", [])
+                if batch_tool
+                else []
+            )
+            if (
+                batch_tool
+                and tool_name in supported_batch_tools
+                and isinstance(tool_args, dict)
+            ):
+                tool_args = {
+                    "operations": [{"tool": tool_name, "args": tool_args}]
+                }
+                tool_name = "run_tool_batch"
+
+        if not any(tool["name"] == tool_name for tool in available_tools):
             yield {
                 "status": "error",
                 "response": f"Model requested an unavailable tool: {tool_name}.",
@@ -329,6 +403,14 @@ def agent_events(
                 "tool_args": tool_args,
                 "message": f"Can I {current_tool.get('display_name', tool_name.replace('_', ' '))}?",
                 "confirmed_message": current_tool.get("confirmed_message"),
+                "tool_display_names": {
+                    **current_tool.get("tool_display_names", {}),
+                    **(
+                        {tool_name: current_tool["display_name"]}
+                        if current_tool.get("display_name")
+                        else {}
+                    ),
+                },
                 "continuation": user_message,
                 "task_id": pending_id,
             }
@@ -395,7 +477,7 @@ def agent(user_message: str, confirmed: Optional[bool] = None):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    if request.custom_instruction is not None:
+    if request.custom_instruction is not None and request.task_id is None:
         update_custom_instruction(
             CustomInstructionRequest(custom_instruction=request.custom_instruction)
         )

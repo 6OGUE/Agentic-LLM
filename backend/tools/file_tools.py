@@ -3,6 +3,7 @@ from typing import Optional
 import subprocess
 import os
 import re
+import shutil
 
 def read_file(path: str) -> str:
     file_path = Path(path)
@@ -129,15 +130,24 @@ def search_file(
     )
 
 
-def open_an_app(path: str) -> str:
-    if os.path.isfile(path) and path.lower().endswith(".exe"):
-        subprocess.Popen([path], cwd=os.path.dirname(path) or None)
-        return f"Opened app: {path}"
+def open_app_or_file(path_or_name: str) -> str:
+    target = Path(path_or_name)
+    if target.is_file():
+        if target.suffix.lower() == ".exe":
+            subprocess.Popen(
+                [str(target)],
+                cwd=str(target.parent) if target.parent != Path(".") else None,
+            )
+            return f"Opened app: {target}"
 
-    return "No such app found"
+        os.startfile(str(target))
+        return f"Opened file: {target}"
 
-def open_file(path: str) -> str:
-    if os.path.isfile(path):
-        os.startfile(path)
-        return f"Opened file: {path}"
-    return "No such file found"
+    has_path = target.parent != Path(".") or bool(target.drive)
+    if not has_path:
+        executable = shutil.which(path_or_name)
+        if executable:
+            subprocess.Popen([executable])
+            return f"Opened app: {executable}"
+
+    raise FileNotFoundError(f"No file or executable found: {path_or_name}")

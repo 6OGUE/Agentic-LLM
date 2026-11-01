@@ -1,265 +1,64 @@
 {
   "tools": [
     {
-      "name": "list_files",
-      "display_name": "list files",
-      "confirmed_message": "Listed files",
+      "name": "run_tool_batch",
+      "display_name": "run a batch of tools",
+      "tool_display_names": {
+        "list_files": "List files",
+        "read_file": "Read file",
+        "write_file": "Write file",
+        "do_a_targetted_edit": "Edit file",
+        "search_file": "Search file",
+        "open_app_or_file": "Open",
+        "run_a_generic_command": "Run command",
+        "run_a_vbs_script": "Run VBScript",
+        "rename_file": "Rename file",
+        "search_the_internet": "Search internet"
+      },
+      "confirmed_message": "Ran a batch of tools",
       "requires_confirmation": true,
-      "description": "Lists all files and folders directly inside the specified directory. Folder names end with a slash.",
-      "module": "tools.file_tools",
+      "description": "Run one or more tools in order. Each operation has a tool name and an args object.\n\nSupported tools and arguments:\n- list_files: path\n- read_file: path\n- write_file: path, content\n- do_a_targetted_edit: path, line_range ('start,end'), content\n- search_file: name, optional drive (string array or null), optional extension (string or null)\n- open_app_or_file: path_or_name (an existing file path, an executable path, or an executable name available on PATH)\n- rename_file: path, new_name\n- run_a_generic_command: cmd\n\n- run_a_vbs_script: script\n- search_the_internet: query\n\nEach tool receives its own arguments. Results and errors are returned per step; an error does not stop later operations. One confirmation authorizes the full batch, including commands or scripts, file changes, application launches, and internet searches. The batch tool cannot call itself.",
+      "module": "tools.execution_tool",
       "parameters": {
         "type": "object",
         "properties": {
-          "path": {
-            "type": "string",
-            "description": "The absolute or relative path to the directory to list."
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "type": "string",
+                  "enum": [
+                    "list_files",
+                    "read_file",
+                    "write_file",
+                    "do_a_targetted_edit",
+                    "search_file",
+                    "open_app_or_file",
+                    "run_a_generic_command",
+                    "run_a_vbs_script",
+                    "rename_file",
+                    "search_the_internet"
+                  ],
+                  "description": "Name of one of the supported tools listed above."
+                },
+                "args": {
+                  "type": "object",
+                  "description": "Arguments for the selected tool, using the parameter names listed above."
+                }
+              },
+              "required": ["tool", "args"],
+              "additionalProperties": false
+            }
           }
         },
-        "required": ["path"]
+        "required": ["operations"]
       },
       "returns": {
-        "type": "string",
-        "description": "A sorted list of file and folder names in the directory, or a message if the directory is empty."
-      }
-    },
-    {
-      "name": "read_file",
-      "display_name": "read files",
-      "confirmed_message": "Read files",
-      "requires_confirmation": true,
-      "description": "Reads the full content of a file from the given path. Only Supports text based files",
-      "module": "tools.file_tools", 
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Absolute or relative path of the file to read"
-          }
-        },
-        "required": ["path"]
-      }
-    },
-    {
-      "name": "write_file",
-      "display_name": "write a file",
-      "confirmed_message": "Wrote a file",
-      "requires_confirmation": true,
-      "description": "Writes content to a file at the given path. Overwrites existing content. Only Supports text based files.",
-      "module": "tools.file_tools",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Absolute or relative path of the file to write"
-          },
-          "content": {
-            "type": "string",
-            "description": "Text content to write into the file"
-          }
-        },
-        "required": ["path", "content"]
-      }
-    },
-    {
-      "name": "do_a_targetted_edit",
-      "display_name": "do a targetted edit",
-      "confirmed_message": "Did a targetted edit",
-      "requires_confirmation": true,
-      "description": "Replaces only the specified 1-based inclusive line range in an existing file. Only Supports text based files",
-      "module": "tools.file_tools",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Absolute or relative path to the existing file."
-          },
-          "line_range": {
-            "type": "string",
-            "description": "Inclusive 1-based start and end line numbers as 'start,end', for example '2,5'."
-          },
-          "content": {
-            "type": "string",
-            "description": "Replacement text for the specified lines."
-          }
-        },
-        "required": ["path", "line_range", "content"]
-      },
-      "returns": {
-        "type": "string",
-        "description": "A message confirming which lines were replaced."
-      }
-    },
-    {
-    "name": "search_file",
-    "display_name": "search for a file",
-    "confirmed_message": "Searched for a file",
-    "requires_confirmation": true,
-    "description": "Searches specified Windows drives, or all available drive letters if none are specified, for a file by name and optional extension. Returns the full path of the first matching file, or 'No file found' if no match exists.",
-    "module": "tools.file_tools",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The file name or filename prefix to search for, without the extension if using the extension parameter."
-        },
-        "drive": {
-          "type": ["array", "null"],
-          "items": {
-            "type": "string"
-          },
-          "description": "Optional list of drive letters to search, such as ['C', 'D'] or ['C:', 'D:']. If omitted or null, searches all drive letters from C to Z."
-        },
-        "extension": {
-          "type": ["string", "null"],
-          "description": "Optional file extension without a leading dot, such as 'pdf', 'txt', or 'py'. If omitted or null, searches by filename prefix across extensions."
-        }
-      },
-      "required": ["name"]
-    },
-    "returns": {
-      "type": "string",
-      "description": "The full path of the first matching file, or 'No file found' if no match exists."
-    }
-  },
-   {
-    "name": "open_file",
-    "display_name": "open a file",
-    "confirmed_message": "Opened a file",
-    "requires_confirmation": true,
-    "description": "Opens a file at the specified Windows path using its default associated application. Returns the file path if opened, or 'No such file found' if the path does not exist or is not a file.",
-    "module": "tools.file_tools",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "The full path to the file to open, such as 'C:\\\\Users\\\\User\\\\Documents\\\\report.pdf'."
-        }
-      },
-      "required": ["path"]
-    },
-    "returns": {
-      "type": "string",
-      "description": "A success message containing the file path if opened, or 'No such file found' if the path does not exist or is not a file."
-    }
-  },
-  {
-    "name": "open_an_app",
-    "display_name": "open an app",
-    "confirmed_message": "Opened an app",
-    "requires_confirmation": true,
-    "description": "Launches a Windows executable (.exe) at the specified path. Returns the executable path if launched, or 'No such app found' if the path does not exist or does not point to an .exe file.",
-    "module": "tools.file_tools",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "The full path to the executable to launch, such as 'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe'."
-        }
-      },
-      "required": ["path"]
-    },
-    "returns": {
-      "type": "string",
-      "description": "A success message containing the executable path if launched, or 'No such app found' if the path does not exist or is not an .exe file."
-    }
-  },
-    {
-      "name": "run_a_generic_command",
-      "display_name": "run a command",
-      "confirmed_message": "Ran a command",
-      "requires_confirmation": true,
-      "description": "Use this tool only for simple general purpose command execution. Do not use it otherwise if the command is too complex or if there are other more suitable tools.",
-      "module": "tools.command_tools",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "cmd": {
-            "type": "string",
-            "description": "The full Windows file related shell command to execute as a single string (supports shell features)."
-          }
-        },
-        "required": ["cmd"]
-      },
-      "returns": {
-        "type": ["object", "string", "null"],
-        "description": "Returns an object containing a status message, stdout, stderr, and return code. Successful commands with no stdout or stderr are identified as executed successfully with no output. Execution exceptions are included in the message and stderr."
-      }
-    },
-    {
-  "name": "run_a_vbs_script",
-  "display_name": "run a script",
-  "confirmed_message": "Ran a script",
-  "requires_confirmation": true,
-  "description": "Use this tool to perform simple Windows GUI automation, such as launching applications, activating or switching windows, simulating keyboard input with SendKeys, typing text, and interacting with basic menus or dialogs. Prefer this tool when a task requires human-like  interactions that cannot be achieved with a simple shell command. ",
-  "module": "tools.command_tools",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "script": {
-        "type": "string",
-        "description": "The full VBScript source code to execute, as a single string. It is written to a temporary .vbs file and run with cscript. Use WScript.Echo to produce output."
-      }
-    },
-    "required": ["script"]
-  },
-  "returns": {
-    "type": ["object", "string", "null"],
-    "description": "Returns an object containing a status message, stdout, stderr, and return code. Successful scripts with no stdout or stderr are identified as executed successfully with no output. Execution exceptions are included in the message and stderr."
-  }
-},
-    
-{
-  "name": "rename_file",
-  "display_name": "rename a file",
-  "confirmed_message": "Renamed a file",
-  "requires_confirmation": true,
-  "description": "Renames an existing file on the filesystem. Requires the full path to the current file and a distinct new filename.",
-  "module": "tools.file_tools",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "path": {
-        "type": "string",
-        "description": "The FULL absolute path of the EXISTING file you want to rename (e.g., 'C:\\Users\\HP\\Desktop\\musketeer')."
-      },
-      "new_name": {
-        "type": "string",
-        "description": "The brand NEW filename ONLY, without any directory path (e.g., 'ronin'). DO NOT pass a path here, and DO NOT reuse the old name."
-      }
-    },
-    "required": [
-      "path",
-      "new_name"
-    ]
-  }
-},
-
-    {
-      "name": "search_the_internet",
-      "display_name": "search the internet",
-      "confirmed_message": "Searched the internet",
-      "requires_confirmation": true,
-      "description": "Searches the web for a query and returns the main extracted text content from the most relevant result as plain text.",
-      "module": "tools.browse_tools",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "The search query to look up online."
-          }
-        },
-        "required": ["query"]
-      },
-      "returns": {
-        "type": "string",
-        "description": "Returns the extracted content from the best matching webpage as plain text, or an empty string if no useful content is found."
+        "type": "array",
+        "description": "One ordered result per operation. Successful steps contain a result; failed steps contain an error."
       }
     }
   ]

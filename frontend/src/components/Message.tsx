@@ -2,7 +2,16 @@ import React, { useState } from 'react';
 
 type MessageType =
   | { role: 'user' | 'agent'; text: string; type?: 'normal' }
-  | { role: 'agent'; type: 'confirmation'; text: string; answered: boolean; toolArgs?: unknown };
+  | {
+    role: 'agent';
+    type: 'confirmation';
+    text: string;
+    answered: boolean;
+    toolName?: string;
+    toolArgs?: unknown;
+    toolNames?: string[];
+    toolDisplayNames?: Record<string, string>;
+  };
 
 interface MessageProps {
   message: MessageType;
@@ -43,26 +52,88 @@ const renderMessageText = (text: string) => {
   });
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
+
+const formatArgumentValue = (value: unknown): string => {
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(formatArgumentValue).join(', ')}]`;
+  if (isRecord(value)) {
+    return `{${Object.entries(value)
+      .map(([key, nestedValue]) => `${key}=${formatArgumentValue(nestedValue)}`)
+      .join(', ')}}`;
+  }
+  return String(value);
+};
+
+const formatToolCall = (toolName: string, args: Record<string, unknown>): string => (
+  `${toolName}(${Object.entries(args)
+    .map(([key, value]) => `${key}=${formatArgumentValue(value)}`)
+    .join(', ')})`
+);
+
+const getToolDisplayName = (toolName: string, displayNames?: Record<string, string>): string => (
+  displayNames?.[toolName] ?? toolName
+);
+
 const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
   const [showDetails, setShowDetails] = useState(false);
 
-  const formattedArgs = message.type === 'confirmation'
-    ? Object.entries(message.toolArgs && typeof message.toolArgs === 'object' ? message.toolArgs : {})
-      .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
-      .join('\n')
+  const toolArgs = message.type === 'confirmation' && isRecord(message.toolArgs)
+    ? message.toolArgs
+    : {};
+  const batchOperations = message.type === 'confirmation'
+    && message.toolName === 'run_tool_batch'
+    && Array.isArray(toolArgs.operations)
+    ? toolArgs.operations
     : null;
+  const batchToolNames = message.type === 'confirmation'
+    && message.toolName === 'run_tool_batch'
+    && Array.isArray(message.toolNames)
+    ? message.toolNames
+    : null;
+
+  const toolCalls = message.type !== 'confirmation'
+    ? []
+    : batchOperations
+      ? batchOperations.map(operation => {
+        const operationRecord = isRecord(operation) ? operation : {};
+        const toolName = typeof operationRecord.tool === 'string'
+          ? operationRecord.tool
+          : 'Unknown tool';
+        const args = isRecord(operationRecord.args) ? operationRecord.args : {};
+
+        return formatToolCall(getToolDisplayName(toolName, message.toolDisplayNames), args);
+      })
+      : [formatToolCall(
+        getToolDisplayName(message.toolName ?? 'Unknown tool', message.toolDisplayNames),
+        toolArgs,
+      )];
 
   return (
     <div className={`msg-row ${message.role}`}>
       <div className={`avatar ${message.role}`}>
         {message.role === 'agent' ? (
-  <span style={{ fontSize: '23px' }}>𖦹</span>
+  <span style={{ fontSize: '21px', marginLeft: '3px',marginBottom: '5px' }}>𓅭</span>
 ) : (
   <span style={{ fontSize: '23px' }}>🗣</span>
 )}
       </div>
       <div className={`bubble ${message.role}`}>
-        {renderMessageText(message.text)}
+        {batchToolNames ? (
+          <>
+            <div>{renderMessageText(message.text)}</div>
+            <ul className="tool-name-list" aria-label="Tools in this batch">
+              {batchToolNames.map((toolName, index) => (
+                <li className="tool-name-chip" key={`${toolName}-${index}`}>
+                  {getToolDisplayName(toolName, message.toolDisplayNames)}
+                </li>
+              ))}
+            </ul>
+            {!message.answered && <div className="confirmation-question"></div>}
+          </>
+        ) : renderMessageText(message.text)}
         {message.role === 'agent' && message.type === 'confirmation' && !message.answered && (
           <>
             <div className="confirm-actions">
@@ -76,8 +147,14 @@ const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
 
             {showDetails && (
               <div className="tool-details" role="dialog" aria-label="Tool parameters">
-                <div className="tool-details-title">Parameters</div>
-                <pre>{formattedArgs}</pre>
+                <div className="tool-details-title">
+                  Tool calls
+                </div>
+                <ul className="tool-call-list">
+                  {toolCalls.map((toolCall, index) => (
+                    <li key={`${toolCall}-${index}`}><code>{toolCall}</code></li>
+                  ))}
+                </ul>
               </div>
             )}
           </>

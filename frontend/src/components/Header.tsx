@@ -67,14 +67,14 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <div className="header">
       
-      <span className="header-title" style={{ fontSize: "1.2rem" }}>𖦹RBIT</span>
+      <span className="header-title" style={{ fontSize: "1.9rem" }}>𓅭</span>
       <button className={`console-toggle${consoleOpen ? ' active' : ''}`} type="button" onClick={toggleConsole} aria-pressed={consoleOpen}>
         
-        ⏳ Console
+        &lt;/&gt; Console
       </button>
       <div className="customize-control">
         <button className={`customize-toggle${customizeOpen ? ' active' : ''}`} type="button" onClick={toggleCustomizePanel} aria-expanded={customizeOpen}>
-          <span style={{ fontSize: '16px' }}>✎</span> Customize
+          <span style={{ fontSize: '16px' }}>🖍</span> Context
         </button>
         {customizeOpen && (
           <div className="popup-backdrop" onMouseDown={event => {
@@ -84,16 +84,16 @@ const Header: React.FC<HeaderProps> = ({
               <div className="popup-window-header">
                 <div>
                   <span className="console-kicker">Personalize</span>
-                  <h2 id="customize-title">Customize assistant</h2>
+                  <h2 id="customize-title">Edit Context</h2>
                 </div>
                 <button className="console-close" type="button" onClick={() => setCustomizeOpen(false)} aria-label="Close customization">×</button>
               </div>
-              <label htmlFor="custom-system-instruction">Additional system prompt</label>
+              <label htmlFor="custom-system-instruction">Add or Delete Context</label>
               <textarea
                 id="custom-system-instruction"
                 value={customInstruction}
                 onChange={event => onCustomInstructionChange(event.target.value)}
-                placeholder="Add instructions for the assistant..."
+                placeholder="Start Typing..."
                 rows={10}
               />
               <div className="model-status" role="status">{customInstructionStatus}</div>
@@ -118,7 +118,7 @@ const Header: React.FC<HeaderProps> = ({
                 <button className="console-close" type="button" onClick={() => setKeyEntryOpen(false)} aria-label="Close LLM settings">×</button>
               </div>
               <label className="model-control">
-                <span>Gemini model</span>
+                <span>Google model</span>
                 <select value={model} onChange={event => onModelChange(event.target.value)} disabled={modelBusy || availableModels.length === 0} aria-label="Gemini model" title={modelError || model}>
                   {availableModels.map(availableModel => <option key={availableModel} value={availableModel}>{availableModel}</option>)}
                 </select>
@@ -134,7 +134,7 @@ const Header: React.FC<HeaderProps> = ({
                 <button type="submit" disabled={!apiKey.trim() || apiKeyBusy}>{apiKeyBusy ? 'Saving' : 'Add'}</button>
               </div>
               <div className="api-key-status">
-                <span>{apiKeyError || (apiKeyConfigured ? 'Held in backend memory' : 'Not configured')}</span>
+                <span>{apiKeyError || (apiKeyConfigured ? 'Held in memory' : 'Not configured')}</span>
                 {apiKeyConfigured && <button type="button" onClick={onClearApiKey} disabled={apiKeyBusy}>Clear</button>}
               </div>
             </form>

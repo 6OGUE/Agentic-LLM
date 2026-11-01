@@ -5,6 +5,7 @@ export interface ChatResponse {
   confirmed_message?: string; // Past-tense message after approval
   tool_name?: string;      // Tool requesting permission
   tool_args?: any;
+  tool_display_names?: Record<string, string>;
   continuation?: string;   // Follow-up context for the next confirmed tool
   task_id?: string;        // Server-side task state for resuming after confirmation
   data?: string;           // Optional extra data
@@ -18,6 +19,11 @@ export interface ToolCallEvent {
 export interface IterationEvent {
   event: "iteration";
   iteration: number;
+}
+
+export interface CustomInstructionEvent {
+  event: "custom_instruction";
+  custom_instruction: string;
 }
 
 export interface InternalEvent {

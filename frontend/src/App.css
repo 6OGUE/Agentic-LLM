@@ -462,9 +462,9 @@
   height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #494949;
+  border: 0px solid #494949;
   color: #d8d8d8;
-  font-size: 22px;
+  font-size: 45px;
 }
 
 .empty-label {
@@ -551,6 +551,31 @@
   content: "\2022";
 }
 
+.tool-name-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-name-chip {
+  max-width: 100%;
+  padding: 3px 9px;
+  border: 1px solid #4b5162;
+  background: #293a34;
+  color: #b9e2d2;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.confirmation-question {
+  margin-top: 10px;
+}
+
 .confirm-actions {
   display: flex;
   flex-wrap: wrap;
@@ -598,14 +623,24 @@
   text-transform: uppercase;
 }
 
-.tool-details pre {
+.tool-call-list {
   max-height: 180px;
+  margin: 0;
+  padding: 0;
   overflow: auto;
+  list-style: none;
+}
+
+.tool-call-list li + li {
+  margin-top: 8px;
+}
+
+.tool-call-list code {
   color: #d0d0d0;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 11px;
   line-height: 1.5;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
 }
 

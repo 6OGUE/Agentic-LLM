@@ -64,8 +64,9 @@ def build_llm_content(
 
     tool_details = []
     for tool in tools:
-        parameters = tool.get("parameters", {}).get("properties", {})
-        required = tool.get("parameters", {}).get("required", [])
+        parameter_schema = tool.get("parameters", {})
+        parameters = parameter_schema.get("properties", {})
+        required = parameter_schema.get("required", [])
         parameter_names = [
             name if name in required else f"{name}?"
             for name in parameters
@@ -79,10 +80,24 @@ def build_llm_content(
         tool_details.append(
             f"{signature} : {description}"
             + (f" {' '.join(details)}" if details else "")
+            + f"\nParameter schema: {json.dumps(parameter_schema, ensure_ascii=False)}"
         )
+
+    batch_tool_available = any(
+        tool.get("name") == "run_tool_batch" for tool in tools
+    )
+    batch_instruction = (
+        "\nThe only callable tool is run_tool_batch. Never call an underlying "
+        "tool by its name directly. To use one, call run_tool_batch with "
+        'operations entries like {"tool": "tool_name", '
+        '"args": {"argument": "value"}}.'
+        if batch_tool_available
+        else ""
+    )
 
     return f"""
 {content}
+{batch_instruction}
 Available tools:
 {chr(10).join(tool_details)}
 """

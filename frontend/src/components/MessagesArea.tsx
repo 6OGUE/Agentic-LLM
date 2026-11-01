@@ -3,7 +3,17 @@ import Message from './Message';
 
 type MessageType =
   | { role: 'user' | 'agent'; text: string; type?: 'normal' }
-  | { role: 'agent'; type: 'confirmation'; text: string; answered: boolean };
+  | {
+    role: 'agent';
+    type: 'confirmation';
+    text: string;
+    answered: boolean;
+    toolName?: string;
+    toolArgs?: unknown;
+    toolNames?: string[];
+    toolDisplayNames?: Record<string, string>;
+    confirmedMessage?: string;
+  };
 
 interface MessagesAreaProps {
   messages: MessageType[];
@@ -25,8 +35,9 @@ const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, activeTo
     <div className="messages-area">
       {isEmpty ? (
         <div className="empty-state">
-          <div className="empty-icon">𖦹</div>
-          <span className="empty-label">Ready Now?</span>
+          <div className="empty-icon">
+  <span style={{ display: 'inline-block', transform: 'translateX(1px)' }}>𓅭</span></div>
+          <span className="empty-label">Quack Quack!</span>
         </div>
       ) : (
         <>
@@ -36,7 +47,7 @@ const MessagesArea: React.FC<MessagesAreaProps> = ({ messages, loading, activeTo
           {loading && (
             <div className="thinking-row">
               <div className="avatar agent">
-                <span style={{ fontSize: '23px' }}>𖦹</span>
+                <span style={{ fontSize: '21px', marginLeft: '3px', marginBottom: '5px' }}>𓅭</span>
               </div>
               <div className="thinking-status">
                 {activeTool && <span className="tool-label">Executing tool</span>}

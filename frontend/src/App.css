@@ -55,7 +55,8 @@
 
 .console-toggle,
 .api-key-toggle,
-.customize-toggle {
+.customize-toggle,
+.history-toggle {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
@@ -71,7 +72,8 @@
 
 .console-toggle:hover,
 .api-key-toggle:hover,
-.customize-toggle:hover {
+.customize-toggle:hover,
+.history-toggle:hover {
   background: var(--surface);
   color: var(--text);
 }
@@ -82,6 +84,11 @@
 }
 
 .customize-toggle.active {
+  border-color: #356d5e;
+  color: #9bd8c5;
+}
+
+.history-toggle.active {
   border-color: #356d5e;
   color: #9bd8c5;
 }
@@ -189,6 +196,102 @@
 
 .customize-panel textarea:focus {
   border-color: var(--accent);
+}
+
+.history-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 30px;
+}
+
+.history-panel .popup-window-header {
+  margin-bottom: 0;
+}
+
+.history-enabled-label {
+  justify-content: space-between;
+  color: var(--text);
+}
+
+.history-panel-actions,
+.history-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-panel-actions {
+  justify-content: flex-end;
+}
+
+.history-clear,
+.history-delete {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.history-clear:hover,
+.history-delete:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.history-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.history-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+
+.history-entry-header {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.history-entry label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.history-entry textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--line);
+  outline: none;
+  background: var(--page);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.history-entry textarea:focus {
+  border-color: var(--accent);
+}
+
+.history-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .api-key-panel {
@@ -789,7 +892,8 @@
 
   .console-toggle,
   .api-key-toggle,
-  .customize-toggle {
+  .customize-toggle,
+  .history-toggle {
     min-height: 30px;
     gap: 5px;
     padding: 0 7px;
@@ -811,6 +915,7 @@
   }
 
   .customize-panel,
+  .history-panel,
   .api-key-panel,
   .internal-console {
     padding: 18px;
@@ -869,7 +974,8 @@
 
   .console-toggle,
   .api-key-toggle,
-  .customize-toggle {
+  .customize-toggle,
+  .history-toggle {
     padding: 0 5px;
     font-size: 9px;
   }

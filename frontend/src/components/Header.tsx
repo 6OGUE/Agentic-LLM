@@ -1,8 +1,16 @@
 import React from 'react';
+import HistoryPanel from './HistoryPanel';
+import type { ConversationHistoryEntry } from '../types';
 
 interface HeaderProps {
   autoAccept: boolean;
   onToggleAutoAccept: (checked: boolean) => void;
+  conversationHistoryEnabled: boolean;
+  onToggleConversationHistory: (checked: boolean) => void;
+  conversationHistory: ConversationHistoryEntry[];
+  onEditHistoryEntry: (index: number, field: keyof ConversationHistoryEntry, value: string) => void;
+  onDeleteHistoryEntry: (index: number) => void;
+  onClearConversationHistory: () => void;
   consoleOpen: boolean;
   onToggleConsole: () => void;
   customInstruction: string;
@@ -25,6 +33,12 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({
   autoAccept,
   onToggleAutoAccept,
+  conversationHistoryEnabled,
+  onToggleConversationHistory,
+  conversationHistory,
+  onEditHistoryEntry,
+  onDeleteHistoryEntry,
+  onClearConversationHistory,
   consoleOpen,
   onToggleConsole,
   customInstruction,
@@ -45,16 +59,19 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const [keyEntryOpen, setKeyEntryOpen] = React.useState(false);
   const [customizeOpen, setCustomizeOpen] = React.useState(false);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
 
   const toggleConsole = () => {
     if (keyEntryOpen) setKeyEntryOpen(false);
     setCustomizeOpen(false);
+    setHistoryOpen(false);
     onToggleConsole();
   };
   const toggleApiKeyPanel = () => {
     const opening = !keyEntryOpen;
     setKeyEntryOpen(opening);
     if (opening) setCustomizeOpen(false);
+    if (opening) setHistoryOpen(false);
     if (opening && consoleOpen) onToggleConsole();
   };
   const toggleCustomizePanel = () => {
@@ -62,6 +79,16 @@ const Header: React.FC<HeaderProps> = ({
     setCustomizeOpen(opening);
     if (opening && consoleOpen) onToggleConsole();
     if (opening && keyEntryOpen) setKeyEntryOpen(false);
+    if (opening) setHistoryOpen(false);
+  };
+  const toggleHistoryPanel = () => {
+    const opening = !historyOpen;
+    setHistoryOpen(opening);
+    if (opening) {
+      setCustomizeOpen(false);
+      setKeyEntryOpen(false);
+      if (consoleOpen) onToggleConsole();
+    }
   };
 
   return (
@@ -101,6 +128,14 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         )}
       </div>
+      <button
+        className={`history-toggle${historyOpen ? ' active' : ''}`}
+        type="button"
+        onClick={toggleHistoryPanel}
+        aria-expanded={historyOpen}
+      >
+        History ({conversationHistory.length})
+      </button>
       <div className="api-key-control">
         <button className={`api-key-toggle${apiKeyConfigured ? ' configured' : ''}`} type="button" onClick={toggleApiKeyPanel} aria-expanded={keyEntryOpen}>
           {apiKeyConfigured ? '✔ LLM configured' : '⫶☰ Configure LLM'}
@@ -149,6 +184,17 @@ const Header: React.FC<HeaderProps> = ({
           <div className="toggle-thumb" />
         </div>
       </label>
+      {historyOpen && (
+        <HistoryPanel
+          entries={conversationHistory}
+          historyEnabled={conversationHistoryEnabled}
+          onToggleHistory={onToggleConversationHistory}
+          onEditEntry={onEditHistoryEntry}
+          onDeleteEntry={onDeleteHistoryEntry}
+          onClear={onClearConversationHistory}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   );
 };

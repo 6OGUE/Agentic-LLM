@@ -9,6 +9,7 @@ import './App.css';
 const App: React.FC = () => {
   const [input, setInput] = useState('');
   const [autoAccept, setAutoAccept] = useState(false);
+  const [conversationHistoryEnabled, setConversationHistoryEnabled] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [customInstruction, setCustomInstruction] = useState('');
   const [customInstructionLoaded, setCustomInstructionLoaded] = useState(false);
@@ -21,8 +22,22 @@ const App: React.FC = () => {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelError, setModelError] = useState('');
   const [modelBusy, setModelBusy] = useState(false);
-  const { messages, loading, activeTool, iteration, internalEvents, handleSend, handleStop, handleConfirm } = useChat(
+  const {
+    messages,
+    conversationHistory,
+    loading,
+    activeTool,
+    iteration,
+    internalEvents,
+    handleSend,
+    handleStop,
+    handleConfirm,
+    handleEditHistoryEntry,
+    handleDeleteHistoryEntry,
+    handleClearConversationHistory,
+  } = useChat(
     autoAccept,
+    conversationHistoryEnabled,
     customInstruction,
     setCustomInstruction,
   );
@@ -146,6 +161,12 @@ const App: React.FC = () => {
       <Header
         autoAccept={autoAccept}
         onToggleAutoAccept={setAutoAccept}
+        conversationHistoryEnabled={conversationHistoryEnabled}
+        onToggleConversationHistory={setConversationHistoryEnabled}
+        conversationHistory={conversationHistory}
+        onEditHistoryEntry={handleEditHistoryEntry}
+        onDeleteHistoryEntry={handleDeleteHistoryEntry}
+        onClearConversationHistory={handleClearConversationHistory}
         consoleOpen={consoleOpen}
         onToggleConsole={() => setConsoleOpen(open => !open)}
         customInstruction={customInstruction}

@@ -11,6 +11,11 @@ export interface ChatResponse {
   data?: string;           // Optional extra data
 }
 
+export interface ConversationHistoryEntry {
+  user_message: string;
+  assistant_response: string;
+}
+
 export interface ToolCallEvent {
   event: "tool_call";
   tool_name: string;

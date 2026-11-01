@@ -78,11 +78,18 @@ app.add_middleware(
 )
 
 
+class ConversationHistoryEntry(BaseModel):
+    user_message: str
+    assistant_response: str
+
+
 class ChatRequest(BaseModel):
     message: str
     confirmed: Optional[bool] = None
     task_id: Optional[str] = None
     custom_instruction: Optional[str] = None
+    conversation_history_enabled: Optional[bool] = None
+    conversation_history: Optional[list[ConversationHistoryEntry]] = None
 
 
 class ApiKeyRequest(BaseModel):
@@ -103,6 +110,8 @@ class PendingAgentTask:
     registry: dict[str, Any]
     user_message: str
     custom_instruction: str
+    conversation_history_enabled: bool
+    conversation_history: list[dict[str, str]]
     iteration: int
     require_tool_choice: bool
     last_read_path: Optional[str]
@@ -204,6 +213,8 @@ def agent_events(
     confirmed: Optional[bool] = None,
     task_id: Optional[str] = None,
     custom_instruction: str = "",
+    conversation_history_enabled: Optional[bool] = None,
+    conversation_history: Optional[list[dict[str, str]]] = None,
 ) -> Iterator[dict]:
     request_started = time.perf_counter()
     if task_id:
@@ -218,6 +229,10 @@ def agent_events(
         registry = pending_task.registry
         user_message = pending_task.user_message
         custom_instruction = pending_task.custom_instruction
+        if conversation_history_enabled is None:
+            conversation_history_enabled = pending_task.conversation_history_enabled
+        if conversation_history is None:
+            conversation_history = pending_task.conversation_history
         iteration = pending_task.iteration
         require_tool_choice = pending_task.require_tool_choice
         last_read_path = pending_task.last_read_path
@@ -226,6 +241,8 @@ def agent_events(
         pending_tool_call: Optional[tuple[str, dict]] = pending_task.pending_tool_call
     else:
         custom_instruction = _custom_instruction
+        conversation_history_enabled = conversation_history_enabled or False
+        conversation_history = conversation_history or []
         tools_schema = load_tools_schema("tool_details.json")
         registry = build_tool_registry(tools_schema)
         available_tools = tools_schema
@@ -254,6 +271,8 @@ def agent_events(
                 available_tools,
                 require_tool_choice=require_tool_choice and bool(available_tools),
                 custom_system_prompt=custom_instruction,
+                conversation_history_enabled=conversation_history_enabled,
+                conversation_history=conversation_history,
             )
             updated_instruction = (
                 _remember_memory(output.get("memory"))
@@ -388,6 +407,8 @@ def agent_events(
                     registry=registry,
                     user_message=user_message,
                     custom_instruction=custom_instruction,
+                    conversation_history_enabled=conversation_history_enabled,
+                    conversation_history=conversation_history or [],
                     iteration=iteration,
                     require_tool_choice=require_tool_choice,
                     last_read_path=last_read_path,
@@ -487,6 +508,14 @@ def chat(request: ChatRequest):
             request.message,
             confirmed=request.confirmed,
             task_id=request.task_id,
+            conversation_history_enabled=request.conversation_history_enabled,
+            conversation_history=[
+                {
+                    "user_message": entry.user_message,
+                    "assistant_response": entry.assistant_response,
+                }
+                for entry in request.conversation_history or []
+            ] if request.conversation_history is not None else None,
         ):
             yield json.dumps(event, ensure_ascii=False) + "\n"
 

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type {
   ChatResponse,
+  ConversationHistoryEntry,
   CustomInstructionEvent,
   InternalEvent,
   IterationEvent,
@@ -71,6 +72,7 @@ const getConfirmationMessages = (
 
 export const useChat = (
   autoAccept: boolean,
+  conversationHistoryEnabled: boolean,
   customInstruction: string,
   onCustomInstructionChange: (instruction: string) => void,
 ) => {
@@ -83,6 +85,9 @@ export const useChat = (
   const isConfirming = useRef(false);
   const requestInFlight = useRef(false);
   const abortController = useRef<AbortController | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<ConversationHistoryEntry[]>([]);
+  const conversationHistoryRef = useRef<ConversationHistoryEntry[]>([]);
+  const recordConversationHistory = useRef(false);
   const [iteration, setIteration] = useState(0);
   const [internalEvents, setInternalEvents] = useState<InternalEvent[]>([]);
 
@@ -105,6 +110,8 @@ export const useChat = (
           confirmed: isConfirmed,
           task_id: taskId,
           custom_instruction: customInstruction,
+          conversation_history_enabled: recordConversationHistory.current,
+          conversation_history: recordConversationHistory.current ? conversationHistoryRef.current : [],
         }),
         signal: controller.signal,
       });
@@ -221,16 +228,27 @@ export const useChat = (
         pendingContinuation.current = null;
         pendingTaskId.current = null;
         isConfirming.current = false;
+        const finalResponse = data.response || data.data || 'The agent returned no response.';
+        if (recordConversationHistory.current && data.status === 'success') {
+          const nextHistory = [
+            ...conversationHistoryRef.current,
+            { user_message: userMsg, assistant_response: finalResponse },
+          ];
+          conversationHistoryRef.current = nextHistory;
+          setConversationHistory(nextHistory);
+        }
+        recordConversationHistory.current = false;
         setMessages(prev => [
           ...prev,
           {
             role: 'agent',
-            text: data.response || data.data || 'The agent returned no response.',
+            text: finalResponse,
             type: 'normal',
           },
         ]);
       }
     } catch (error) {
+      recordConversationHistory.current = false;
       if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Error calling API:', error);
       isConfirming.current = false;
@@ -253,6 +271,7 @@ export const useChat = (
     if (!input.trim() || requestInFlight.current) return;
     requestInFlight.current = true;
     isConfirming.current = false;
+    recordConversationHistory.current = conversationHistoryEnabled;
     setMessages(prev => [...prev, { role: 'user', text: input, type: 'normal' }]);
     callApi(input);
   };
@@ -295,8 +314,32 @@ export const useChat = (
     }
   };
 
+  const handleEditHistoryEntry = (
+    index: number,
+    field: keyof ConversationHistoryEntry,
+    value: string,
+  ) => {
+    const nextHistory = conversationHistoryRef.current.map((entry, entryIndex) => (
+      entryIndex === index ? { ...entry, [field]: value } : entry
+    ));
+    conversationHistoryRef.current = nextHistory;
+    setConversationHistory(nextHistory);
+  };
+
+  const handleDeleteHistoryEntry = (index: number) => {
+    const nextHistory = conversationHistoryRef.current.filter((_, entryIndex) => entryIndex !== index);
+    conversationHistoryRef.current = nextHistory;
+    setConversationHistory(nextHistory);
+  };
+
+  const handleClearConversationHistory = () => {
+    conversationHistoryRef.current = [];
+    setConversationHistory([]);
+  };
+
   return {
     messages,
+    conversationHistory,
     loading,
     activeTool,
     iteration,
@@ -304,5 +347,8 @@ export const useChat = (
     handleSend,
     handleStop,
     handleConfirm,
+    handleEditHistoryEntry,
+    handleDeleteHistoryEntry,
+    handleClearConversationHistory,
   };
 };

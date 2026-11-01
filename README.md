@@ -7,4 +7,3 @@
 5. Follow the URL displayed in the terminal
 6. Configure `GOOGLE API KEY` in the app's LLM settings.
 
-

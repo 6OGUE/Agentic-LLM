@@ -17,11 +17,24 @@ type Message =
     toolName?: string;
     toolArgs?: unknown;
     toolNames?: string[];
+    toolCallKeys?: string[];
     toolDisplayNames?: Record<string, string>;
     confirmedMessage?: string;
   };
 
-const getBatchToolNames = (toolArgs: unknown): string[] => {
+const normalizeToolCallValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(normalizeToolCallValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nestedValue]) => [key, normalizeToolCallValue(nestedValue)]),
+    );
+  }
+  return value;
+};
+
+const getBatchToolCalls = (toolArgs: unknown): { name: string; key: string }[] => {
   if (!toolArgs || typeof toolArgs !== 'object' || !('operations' in toolArgs)) {
     return [];
   }
@@ -29,13 +42,92 @@ const getBatchToolNames = (toolArgs: unknown): string[] => {
   const operations = toolArgs.operations;
   if (!Array.isArray(operations)) return [];
 
-  return operations.map(operation => (
-    operation && typeof operation === 'object' && 'tool' in operation
-      && typeof operation.tool === 'string'
-      ? operation.tool
-      : 'Invalid operation'
+  const calls = operations.map(operation => {
+    const operationRecord = operation && typeof operation === 'object'
+      ? operation as Record<string, unknown>
+      : {};
+    const name = typeof operationRecord.tool === 'string'
+      ? operationRecord.tool
+      : 'Invalid operation';
+    const args = operationRecord.args ?? {};
+
+    return {
+      name,
+      key: JSON.stringify([name, normalizeToolCallValue(args)]),
+    };
+  });
+
+  return calls.filter((call, index) => (
+    calls.findIndex(candidate => candidate.key === call.key) === index
   ));
 };
+
+const mergePerformedToolCalls = (
+  messages: Message[],
+  toolNames: string[],
+  toolCallKeys: string[],
+  toolDisplayNames?: Record<string, string>,
+): Message[] => {
+  let latestUserMessage = -1;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (messages[index].role === 'user') {
+      latestUserMessage = index;
+      break;
+    }
+  }
+
+  for (let index = messages.length - 1; index > latestUserMessage; index--) {
+    const message = messages[index];
+    if (
+      message.role !== 'agent'
+      || message.type !== 'confirmation'
+      || !message.answered
+      || message.confirmedMessage !== 'Actions Performed:'
+    ) continue;
+
+    const existingKeys = new Set(message.toolCallKeys ?? []);
+    const mergedNames = [...(message.toolNames ?? [])];
+    const mergedKeys = [...existingKeys];
+    toolCallKeys.forEach((key, callIndex) => {
+      if (existingKeys.has(key)) return;
+      existingKeys.add(key);
+      mergedKeys.push(key);
+      mergedNames.push(toolNames[callIndex]);
+    });
+
+    const next = [...messages];
+    next[index] = {
+      ...message,
+      toolNames: mergedNames,
+      toolCallKeys: mergedKeys,
+      toolDisplayNames: { ...message.toolDisplayNames, ...toolDisplayNames },
+    };
+    return next;
+  }
+
+  return [
+    ...messages,
+    {
+      role: 'agent',
+      type: 'confirmation',
+      text: 'Actions Performed:',
+      answered: true,
+      toolName: 'run_tool_batch',
+      toolNames,
+      toolCallKeys,
+      toolDisplayNames,
+      confirmedMessage: 'Actions Performed:',
+    },
+  ];
+};
+
+const isSameToolExecution = (previous: InternalEvent, current: InternalEvent): boolean => (
+  previous.event === 'tool_execution'
+  && current.event === 'tool_execution'
+  && previous.tool_name === current.tool_name
+  && JSON.stringify(normalizeToolCallValue(previous.tool_args))
+    === JSON.stringify(normalizeToolCallValue(current.tool_args))
+);
 
 const getConfirmationMessages = (
   toolName: string | undefined,
@@ -45,27 +137,20 @@ const getConfirmationMessages = (
   toolDisplayNames: Record<string, string> | undefined,
 ) => {
   if (toolName !== 'run_tool_batch') {
-    return {
-      text: message ?? 'Confirm?',
-      confirmedMessage,
-      toolDisplayNames,
-    };
+    return { text: message ?? 'Confirm?', confirmedMessage, toolDisplayNames };
   }
 
-  const toolNames = getBatchToolNames(toolArgs);
-  if (toolNames.length === 0) {
-    return {
-      text: message ?? 'Confirm this batch of tools?',
-      confirmedMessage,
-      toolDisplayNames,
-    };
+  const toolCalls = getBatchToolCalls(toolArgs);
+  if (toolCalls.length === 0) {
+    return { text: message ?? 'Confirm this batch of tools?', confirmedMessage, toolDisplayNames };
   }
 
   return {
     text: 'Tools required:',
-    toolNames,
+    toolNames: toolCalls.map(call => call.name),
+    toolCallKeys: toolCalls.map(call => call.key),
     toolDisplayNames,
-    confirmedMessage: 'Tools Executed:',
+    confirmedMessage: 'Actions Performed:',
   };
 };
 
@@ -178,17 +263,11 @@ export const useChat = (
           setIteration(event.iteration);
         } else if ('event' in event && (event.event === 'llm_call' || event.event === 'tool_execution' || event.event === 'agent_response')) {
           setInternalEvents(prev => {
-            if (event.event !== 'tool_execution' || event.status !== 'completed') {
-              return [...prev, event];
-            }
+            if (event.event !== 'tool_execution') return [...prev, event];
 
             for (let index = prev.length - 1; index >= 0; index--) {
               const previousEvent = prev[index];
-              if (
-                previousEvent.event === 'tool_execution'
-                && previousEvent.tool_name === event.tool_name
-                && previousEvent.status === 'started'
-              ) {
+              if (isSameToolExecution(previousEvent, event)) {
                 const next = [...prev];
                 next[index] = event;
                 return next;
@@ -223,18 +302,29 @@ export const useChat = (
           data.tool_display_names,
         );
         if (autoAccept) {
-          setMessages(prev => [
-            ...prev,
-            {
-              role: 'agent',
-              type: 'confirmation',
-              text: confirmation.confirmedMessage ?? confirmation.text,
-              answered: true,
-              toolName: data.tool_name,
-              toolNames: confirmation.toolNames,
-              toolDisplayNames: confirmation.toolDisplayNames,
-            },
-          ]);
+          setMessages(prev => {
+            if (confirmation.toolNames && confirmation.toolCallKeys) {
+              return mergePerformedToolCalls(
+                prev,
+                confirmation.toolNames,
+                confirmation.toolCallKeys,
+                confirmation.toolDisplayNames,
+              );
+            }
+            return [
+              ...prev,
+              {
+                role: 'agent',
+                type: 'confirmation',
+                text: confirmation.confirmedMessage ?? confirmation.text,
+                answered: true,
+                toolName: data.tool_name,
+                toolNames: confirmation.toolNames,
+                toolCallKeys: confirmation.toolCallKeys,
+                toolDisplayNames: confirmation.toolDisplayNames,
+              },
+            ];
+          });
           isConfirming.current = true;
           pendingUserMsg.current = null;
           pendingContinuation.current = null;
@@ -258,6 +348,7 @@ export const useChat = (
                 toolName: data.tool_name,
                 toolArgs: data.tool_args,
                 toolNames: confirmation.toolNames,
+                toolCallKeys: confirmation.toolCallKeys,
                 toolDisplayNames: confirmation.toolDisplayNames,
                 confirmedMessage: confirmation.confirmedMessage,
               },
@@ -331,6 +422,21 @@ export const useChat = (
       for (let i = newMessages.length - 1; i >= 0; i--) {
         const m = newMessages[i];
         if (m.role === 'agent' && m.type === 'confirmation' && !m.answered) {
+          if (
+            choice
+            && m.confirmedMessage === 'Actions Performed:'
+            && m.toolNames
+            && m.toolCallKeys
+          ) {
+            newMessages.splice(i, 1);
+            return mergePerformedToolCalls(
+              newMessages,
+              m.toolNames,
+              m.toolCallKeys,
+              m.toolDisplayNames,
+            );
+          }
+
           newMessages[i] = {
             ...m,
             answered: true,

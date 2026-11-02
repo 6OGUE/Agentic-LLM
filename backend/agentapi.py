@@ -184,7 +184,6 @@ class PendingAgentTask:
     conversation_history: list[dict[str, str]]
     iteration: int
     require_tool_choice: bool
-    last_read_path: Optional[str]
     tool_error: bool
     attempted_tool_calls: set[tuple[str, str]]
     duplicate_tool_call_rejections: int
@@ -285,7 +284,6 @@ def _tool_call_fingerprints(
             ensure_ascii=False,
         ),
     )]
-
     if tool_name == "run_tool_batch":
         operations = tool_args.get("operations")
         if isinstance(operations, list):
@@ -304,7 +302,6 @@ def _tool_call_fingerprints(
                             ensure_ascii=False,
                         ),
                     ))
-
     return fingerprints
 
 
@@ -344,7 +341,6 @@ def agent_events(
             conversation_history = pending_task.conversation_history
         iteration = pending_task.iteration
         require_tool_choice = pending_task.require_tool_choice
-        last_read_path = pending_task.last_read_path
         tool_error = pending_task.tool_error
         attempted_tool_calls = pending_task.attempted_tool_calls
         duplicate_tool_call_rejections = (
@@ -360,7 +356,6 @@ def agent_events(
         available_tools = tools_schema
         iteration = 0
         require_tool_choice = True
-        last_read_path = None
         tool_error = False
         attempted_tool_calls = set()
         duplicate_tool_call_rejections = 0
@@ -439,16 +434,6 @@ def agent_events(
             }
             return
 
-        if tool_name == "rename_file" and last_read_path:
-            requested_path = tool_args.get("path", "")
-            new_name = tool_args.get("new_name", "")
-            if (
-                requested_path
-                and new_name
-                and Path(requested_path).name.lower() == new_name.lower()
-            ):
-                tool_args = {**tool_args, "path": last_read_path}
-
         if not tool_name:
             yield {
                 "status": "error",
@@ -464,7 +449,7 @@ def agent_events(
                 ),
                 None,
             )
-            supported_batch_tools = (
+            supported_tools = (
                 batch_tool.get("parameters", {})
                 .get("properties", {})
                 .get("operations", {})
@@ -475,11 +460,7 @@ def agent_events(
                 if batch_tool
                 else []
             )
-            if (
-                batch_tool
-                and tool_name in supported_batch_tools
-                and isinstance(tool_args, dict)
-            ):
+            if batch_tool and tool_name in supported_tools:
                 tool_args = {
                     "operations": [{"tool": tool_name, "args": tool_args}]
                 }
@@ -559,7 +540,6 @@ def agent_events(
                     conversation_history=conversation_history or [],
                     iteration=iteration,
                     require_tool_choice=require_tool_choice,
-                    last_read_path=last_read_path,
                     tool_error=tool_error,
                     attempted_tool_calls=set(attempted_tool_calls),
                     duplicate_tool_call_rejections=(
@@ -575,14 +555,7 @@ def agent_events(
                 "tool_args": tool_args,
                 "message": f"Can I {current_tool.get('display_name', tool_name.replace('_', ' '))}?",
                 "confirmed_message": current_tool.get("confirmed_message"),
-                "tool_display_names": {
-                    **current_tool.get("tool_display_names", {}),
-                    **(
-                        {tool_name: current_tool["display_name"]}
-                        if current_tool.get("display_name")
-                        else {}
-                    ),
-                },
+                "tool_display_names": current_tool.get("tool_display_names", {}),
                 "continuation": user_message,
                 "task_id": pending_id,
             }
@@ -624,8 +597,6 @@ def agent_events(
             "status": "completed",
         }
 
-        if tool_name == "read_file" and not str(result).startswith("Execution error:"):
-            last_read_path = tool_args.get("path")
         tool_error = isinstance(result, str) and (
             result.startswith("Execution error:")
             or result.startswith("Tool validation error:")

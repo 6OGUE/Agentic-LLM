@@ -93,7 +93,6 @@ const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
     && Array.isArray(message.toolNames)
     ? message.toolNames
     : null;
-
   const toolCalls = message.type !== 'confirmation'
     ? []
     : batchOperations
@@ -131,7 +130,6 @@ const Message: React.FC<MessageProps> = ({ message, onConfirm }) => {
                 </li>
               ))}
             </ul>
-            {!message.answered && <div className="confirmation-question"></div>}
           </>
         ) : renderMessageText(message.text)}
         {message.role === 'agent' && message.type === 'confirmation' && !message.answered && (

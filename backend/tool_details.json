@@ -4,20 +4,12 @@
       "name": "run_tool_batch",
       "display_name": "run a batch of tools",
       "tool_display_names": {
-        "list_files": "List files",
-        "read_file": "Read file",
-        "write_file": "Write file",
-        "do_a_targetted_edit": "Edit file",
-        "search_file": "Search file",
-        "open_file": "Open",
-        "run_a_generic_command": "Run command",
-        "run_a_vbs_script": "Run VBScript",
-        "rename_file": "Rename file",
+        "run_a_command": "Command execution",
         "search_the_internet": "Search internet"
       },
       "confirmed_message": "Ran a batch of tools",
       "requires_confirmation": true,
-      "description": "Run one or more tools in order. Each operation has a tool name and an args object.\n\nSupported tools and arguments:\n- list_files: path\n- read_file: path\n- write_file: path, content\n- do_a_targetted_edit: path, line_range ('start,end'), content\n- search_file: name, optional drive (string array or null), optional extension (string or null)\n- open_file: path (an existing file path)\n- rename_file: path, new_name\n- run_a_generic_command: cmd(Provide the command itself as the cmd argument; do not wrap the entire command in extra quotes. JSON escaping is separate from shell quoting: JSON requires each path backslash to be written as \\, and quotes inside a JSON string as \". After JSON parsing, the command must contain ordinary single backslashes and shell quotes, with no literal backslash before the quote.)\n\n- run_a_vbs_script: script(use this for performing UI actions in the system like clicking, typing, etc) \n- search_the_internet: query\n\nEach tool receives its own arguments. Results and errors are returned per step; an error does not stop later operations. One confirmation authorizes the full batch, including commands or scripts, file changes, application launches, and internet searches. The batch tool cannot call itself.",
+      "description": "Run one or more of the supported tools in order. Each operation has a tool name and an args object. One confirmation authorizes the full batch.",
       "module": "tools.execution_tool",
       "parameters": {
         "type": "object",
@@ -30,23 +22,22 @@
               "properties": {
                 "tool": {
                   "type": "string",
-                  "enum": [
-                    "list_files",
-                    "read_file",
-                    "write_file",
-                    "do_a_targetted_edit",
-                    "search_file",
-                    "open_file",
-                    "run_a_generic_command",
-                    "run_a_vbs_script",
-                    "rename_file",
-                    "search_the_internet"
-                  ],
-                  "description": "Name of one of the supported tools listed above."
+                  "enum": ["run_a_command", "search_the_internet"],
+                  "description": "Name of one of the supported tools."
                 },
                 "args": {
                   "type": "object",
-                  "description": "Arguments for the selected tool, using the parameter names listed above."
+                  "description": "Always Pass only the arguments required by the selected operation.",
+                  "properties": {
+                    "cmd": {
+                      "type": "string",
+                      "description": "Windows command to execute. Can be either a Command Prompt (CMD) command or a PowerShell command. For multiline files, use shell-appropriate syntax: in CMD, write the first line with > file echo first line and append further lines with >> file echo next line; in PowerShell, join an array of lines with [Environment]::NewLine. `n is literal inside PowerShell single-quoted strings."
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "Search query based on the user's request. Can be rephrased or optimized for better search results if needed."
+                    }
+                  }
                 }
               },
               "required": ["tool", "args"],
@@ -55,10 +46,6 @@
           }
         },
         "required": ["operations"]
-      },
-      "returns": {
-        "type": "array",
-        "description": "One ordered result per operation. Successful steps contain a result; failed steps contain an error."
       }
     }
   ]

@@ -630,10 +630,6 @@
   overflow-wrap: anywhere;
 }
 
-.confirmation-question {
-  margin-top: 10px;
-}
-
 .confirm-actions {
   display: flex;
   flex-wrap: wrap;

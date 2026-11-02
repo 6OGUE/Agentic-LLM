@@ -10,17 +10,17 @@ def _process_result_message(
     stdout: str,
     stderr: str,
     returncode: int,
-) -> str:
-    if returncode != 0:
-        return (
-            f"{action} failed with exit code {returncode}; "
-            "details are available in stderr."
-        )
-    if not stdout.strip() and not stderr.strip():
-        return f"{action} executed successfully, Consider this step as completed and move to next step. Do not call this one again"
-    if not stdout.strip():
-        return f"{action} executed successfully; details are available in stderr."
-    return f"{action} executed successfully; output is available in stdout."
+) -> dict[str, str]:
+    if returncode == 0:
+        return {
+            "message": f"{action} Successful",
+            "output": stdout.strip() or "Executed successfully.",
+        }
+
+    return {
+        "message": f"{action} Failed",
+        "output": stderr.strip() or stdout.strip() or "Failed",
+    }
 
 
 def _normalize_windows_command(cmd: str) -> str:
@@ -39,7 +39,7 @@ def _normalize_windows_command(cmd: str) -> str:
     )
 
 
-def run_a_generic_command(cmd: str) -> dict[str, Any]:
+def run_a_command(cmd: str) -> dict[str, Any]:
     try:
         cmd = _normalize_windows_command(cmd)
         completed_process = subprocess.run(
@@ -49,23 +49,22 @@ def run_a_generic_command(cmd: str) -> dict[str, Any]:
             capture_output=True,
             check=False,
         )
+
         message = _process_result_message(
             f"Command '{cmd}'",
             completed_process.stdout,
             completed_process.stderr,
             completed_process.returncode,
         )
+
         return {
             "message": message,
-            "stdout": completed_process.stdout,
-            "stderr": completed_process.stderr,
             "returncode": completed_process.returncode,
         }
+
     except Exception as exc:
         return {
             "message": f"Failed to execute command '{cmd}': {exc}",
-            "stdout": "",
-            "stderr": str(exc),
             "returncode": 1,
         }
 
@@ -75,9 +74,10 @@ def run_a_vbs_script(script: str) -> dict[str, Any]:
     try:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".vbs", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(script)
-            path = f.name
+        ) as script_file:
+            script_file.write(script)
+            path = script_file.name
+
         completed_process = subprocess.run(
             ["cscript", "//Nologo", path],
             text=True,

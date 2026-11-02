@@ -87,10 +87,9 @@ def build_llm_content(
         tool.get("name") == "run_tool_batch" for tool in tools
     )
     batch_instruction = (
-        "\nThe only callable tool is run_tool_batch. Never call an underlying "
-        "tool by its name directly. To use one, call run_tool_batch with "
-        'operations entries like {"tool": "tool_name", '
-        '"args": {"argument": "value"}}.'
+        "\nThe only callable tool is run_tool_batch. To invoke supported "
+        "operations, call it with an operations array containing objects "
+        'like {"tool": "run_a_command", "args": {"cmd": "..."}}.'
         if batch_tool_available
         else ""
     )

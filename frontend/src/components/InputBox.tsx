@@ -51,7 +51,7 @@ const InputBox: React.FC<InputBoxProps> = ({ input, onInputChange, onSend, onSto
           )}
         </button>
       </div>
-      <div className="hint">Shift + Enter for new line</div>
+      <div className="hint">AI can make mistakes. Reviewing tool calls before approving is recommended.</div>
     </div>
   );
 };

@@ -55,7 +55,6 @@
 
 .console-toggle,
 .api-key-toggle,
-.customize-toggle,
 .history-toggle {
   display: inline-flex;
   min-height: 32px;
@@ -72,18 +71,12 @@
 
 .console-toggle:hover,
 .api-key-toggle:hover,
-.customize-toggle:hover,
 .history-toggle:hover {
   background: var(--surface);
   color: var(--text);
 }
 
 .console-toggle.active {
-  border-color: #356d5e;
-  color: #9bd8c5;
-}
-
-.customize-toggle.active {
   border-color: #356d5e;
   color: #9bd8c5;
 }
@@ -128,10 +121,6 @@
   position: relative;
 }
 
-.customize-control {
-  position: relative;
-}
-
 .popup-backdrop {
   position: fixed;
   z-index: 20;
@@ -167,35 +156,6 @@
   color: var(--text);
   font-size: 20px;
   font-weight: 500;
-}
-
-.customize-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 30px;
-}
-
-.customize-panel label {
-  color: var(--text);
-  font-size: 14px;
-}
-
-.customize-panel textarea {
-  width: 100%;
-  min-height: 280px;
-  resize: both;
-  padding: 14px;
-  border: 1px solid var(--line);
-  outline: none;
-  background: var(--page);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}
-
-.customize-panel textarea:focus {
-  border-color: var(--accent);
 }
 
 .history-panel {
@@ -292,6 +252,11 @@
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.history-status {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .api-key-panel {
@@ -535,16 +500,6 @@
   gap: 18px;
   padding: 28px 24px 18px;
   overflow-y: auto;
-  scrollbar-color: #4a4a4a transparent;
-  scrollbar-width: thin;
-}
-
-.messages-area::-webkit-scrollbar {
-  width: 6px;
-}
-
-.messages-area::-webkit-scrollbar-thumb {
-  background: #4a4a4a;
 }
 
 .empty-state {
@@ -892,7 +847,6 @@
 
   .console-toggle,
   .api-key-toggle,
-  .customize-toggle,
   .history-toggle {
     min-height: 30px;
     gap: 5px;
@@ -914,15 +868,10 @@
     font-size: 17px;
   }
 
-  .customize-panel,
   .history-panel,
   .api-key-panel,
   .internal-console {
     padding: 18px;
-  }
-
-  .customize-panel textarea {
-    min-height: 220px;
   }
 
   .internal-console {
@@ -974,7 +923,6 @@
 
   .console-toggle,
   .api-key-toggle,
-  .customize-toggle,
   .history-toggle {
     padding: 0 5px;
     font-size: 9px;

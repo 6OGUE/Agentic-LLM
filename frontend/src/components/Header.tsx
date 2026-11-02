@@ -8,14 +8,12 @@ interface HeaderProps {
   conversationHistoryEnabled: boolean;
   onToggleConversationHistory: (checked: boolean) => void;
   conversationHistory: ConversationHistoryEntry[];
+  conversationHistoryStatus: string;
   onEditHistoryEntry: (index: number, field: keyof ConversationHistoryEntry, value: string) => void;
   onDeleteHistoryEntry: (index: number) => void;
   onClearConversationHistory: () => void;
   consoleOpen: boolean;
   onToggleConsole: () => void;
-  customInstruction: string;
-  onCustomInstructionChange: (value: string) => void;
-  customInstructionStatus: string;
   apiKey: string;
   onApiKeyChange: (value: string) => void;
   apiKeyConfigured: boolean;
@@ -36,14 +34,12 @@ const Header: React.FC<HeaderProps> = ({
   conversationHistoryEnabled,
   onToggleConversationHistory,
   conversationHistory,
+  conversationHistoryStatus,
   onEditHistoryEntry,
   onDeleteHistoryEntry,
   onClearConversationHistory,
   consoleOpen,
   onToggleConsole,
-  customInstruction,
-  onCustomInstructionChange,
-  customInstructionStatus,
   apiKey,
   onApiKeyChange,
   apiKeyConfigured,
@@ -58,34 +54,23 @@ const Header: React.FC<HeaderProps> = ({
   onModelChange,
 }) => {
   const [keyEntryOpen, setKeyEntryOpen] = React.useState(false);
-  const [customizeOpen, setCustomizeOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
 
   const toggleConsole = () => {
     if (keyEntryOpen) setKeyEntryOpen(false);
-    setCustomizeOpen(false);
     setHistoryOpen(false);
     onToggleConsole();
   };
   const toggleApiKeyPanel = () => {
     const opening = !keyEntryOpen;
     setKeyEntryOpen(opening);
-    if (opening) setCustomizeOpen(false);
     if (opening) setHistoryOpen(false);
     if (opening && consoleOpen) onToggleConsole();
-  };
-  const toggleCustomizePanel = () => {
-    const opening = !customizeOpen;
-    setCustomizeOpen(opening);
-    if (opening && consoleOpen) onToggleConsole();
-    if (opening && keyEntryOpen) setKeyEntryOpen(false);
-    if (opening) setHistoryOpen(false);
   };
   const toggleHistoryPanel = () => {
     const opening = !historyOpen;
     setHistoryOpen(opening);
     if (opening) {
-      setCustomizeOpen(false);
       setKeyEntryOpen(false);
       if (consoleOpen) onToggleConsole();
     }
@@ -99,43 +84,14 @@ const Header: React.FC<HeaderProps> = ({
         
         &lt;/&gt; Console
       </button>
-      <div className="customize-control">
-        <button className={`customize-toggle${customizeOpen ? ' active' : ''}`} type="button" onClick={toggleCustomizePanel} aria-expanded={customizeOpen}>
-          <span style={{ fontSize: '16px' }}>🖍</span> Context
-        </button>
-        {customizeOpen && (
-          <div className="popup-backdrop" onMouseDown={event => {
-            if (event.target === event.currentTarget) setCustomizeOpen(false);
-          }}>
-            <section className="customize-panel popup-window" role="dialog" aria-modal="true" aria-labelledby="customize-title">
-              <div className="popup-window-header">
-                <div>
-                  <span className="console-kicker">Personalize</span>
-                  <h2 id="customize-title">Edit Context</h2>
-                </div>
-                <button className="console-close" type="button" onClick={() => setCustomizeOpen(false)} aria-label="Close customization">×</button>
-              </div>
-              <label htmlFor="custom-system-instruction">Add or Delete Context</label>
-              <textarea
-                id="custom-system-instruction"
-                value={customInstruction}
-                onChange={event => onCustomInstructionChange(event.target.value)}
-                placeholder="Start Typing..."
-                rows={10}
-              />
-              <div className="model-status" role="status">{customInstructionStatus}</div>
-            </section>
-          </div>
-        )}
-      </div>
       <button
         className={`history-toggle${historyOpen ? ' active' : ''}`}
         type="button"
         onClick={toggleHistoryPanel}
         aria-expanded={historyOpen}
-      >
-        History ({conversationHistory.length})
-      </button>
+>
+  <span style={{ fontSize: "1.5em", verticalAlign: "middle" }}>◷</span> History
+</button>
       <div className="api-key-control">
         <button className={`api-key-toggle${apiKeyConfigured ? ' configured' : ''}`} type="button" onClick={toggleApiKeyPanel} aria-expanded={keyEntryOpen}>
           {apiKeyConfigured ? '✔ LLM configured' : '⫶☰ Configure LLM'}
@@ -169,7 +125,7 @@ const Header: React.FC<HeaderProps> = ({
                 <button type="submit" disabled={!apiKey.trim() || apiKeyBusy}>{apiKeyBusy ? 'Saving' : 'Add'}</button>
               </div>
               <div className="api-key-status">
-                <span>{apiKeyError || (apiKeyConfigured ? 'Held in memory' : 'Not configured')}</span>
+                <span>{apiKeyError || (apiKeyConfigured ? 'Configured for this session' : 'Not configured')}</span>
                 {apiKeyConfigured && <button type="button" onClick={onClearApiKey} disabled={apiKeyBusy}>Clear</button>}
               </div>
             </form>
@@ -187,6 +143,7 @@ const Header: React.FC<HeaderProps> = ({
       {historyOpen && (
         <HistoryPanel
           entries={conversationHistory}
+          status={conversationHistoryStatus}
           historyEnabled={conversationHistoryEnabled}
           onToggleHistory={onToggleConversationHistory}
           onEditEntry={onEditHistoryEntry}

@@ -1,8 +1,7 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type {
   ChatResponse,
   ConversationHistoryEntry,
-  CustomInstructionEvent,
   InternalEvent,
   IterationEvent,
   ToolCallEvent,
@@ -73,8 +72,6 @@ const getConfirmationMessages = (
 export const useChat = (
   autoAccept: boolean,
   conversationHistoryEnabled: boolean,
-  customInstruction: string,
-  onCustomInstructionChange: (instruction: string) => void,
 ) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -88,8 +85,55 @@ export const useChat = (
   const [conversationHistory, setConversationHistory] = useState<ConversationHistoryEntry[]>([]);
   const conversationHistoryRef = useRef<ConversationHistoryEntry[]>([]);
   const recordConversationHistory = useRef(false);
+  const [conversationHistoryStatus, setConversationHistoryStatus] = useState('Loading history…');
+  const historyLoad = useRef<Promise<void>>(Promise.resolve());
+  const historySaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const historyModified = useRef(false);
   const [iteration, setIteration] = useState(0);
   const [internalEvents, setInternalEvents] = useState<InternalEvent[]>([]);
+
+  useEffect(() => {
+    historyLoad.current = fetch('http://localhost:8000/conversation-history')
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail ?? 'Could not load conversation history.');
+        return data as { entries: ConversationHistoryEntry[] };
+      })
+      .then(data => {
+        if (!historyModified.current) {
+          conversationHistoryRef.current = data.entries;
+          setConversationHistory(data.entries);
+        }
+        setConversationHistoryStatus('');
+      })
+      .catch(error => {
+        setConversationHistoryStatus(
+          error instanceof Error ? `Could not load history: ${error.message}` : 'Could not load history.',
+        );
+      });
+  }, []);
+
+  const persistConversationHistory = (entries: ConversationHistoryEntry[]) => {
+    setConversationHistoryStatus('Saving history…');
+    historySaveQueue.current = historySaveQueue.current
+      .catch(() => undefined)
+      .then(() => historyLoad.current)
+      .then(async () => {
+        const response = await fetch('http://localhost:8000/conversation-history', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entries }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail ?? 'Could not save conversation history.');
+        setConversationHistoryStatus('History saved');
+      })
+      .catch(error => {
+        setConversationHistoryStatus(
+          error instanceof Error ? `Could not save history: ${error.message}` : 'Could not save history.',
+        );
+      });
+  };
 
   const callApi = async (
     userMsg: string,
@@ -98,6 +142,7 @@ export const useChat = (
     ownsRequest = true,
     taskId?: string,
   ) => {
+    await historyLoad.current;
     const controller = new AbortController();
     abortController.current = controller;
     setLoading(true);
@@ -109,7 +154,6 @@ export const useChat = (
           message: continuation ?? userMsg,
           confirmed: isConfirmed,
           task_id: taskId,
-          custom_instruction: customInstruction,
           conversation_history_enabled: recordConversationHistory.current,
           conversation_history: recordConversationHistory.current ? conversationHistoryRef.current : [],
         }),
@@ -124,7 +168,6 @@ export const useChat = (
 
       const processEvent = (
         event: ChatResponse
-          | CustomInstructionEvent
           | InternalEvent
           | ToolCallEvent
           | IterationEvent,
@@ -133,8 +176,6 @@ export const useChat = (
           setActiveTool(event.tool_name);
         } else if ('event' in event && event.event === 'iteration') {
           setIteration(event.iteration);
-        } else if ('event' in event && event.event === 'custom_instruction') {
-          onCustomInstructionChange(event.custom_instruction);
         } else if ('event' in event && (event.event === 'llm_call' || event.event === 'tool_execution' || event.event === 'agent_response')) {
           setInternalEvents(prev => {
             if (event.event !== 'tool_execution' || event.status !== 'completed') {
@@ -234,8 +275,10 @@ export const useChat = (
             ...conversationHistoryRef.current,
             { user_message: userMsg, assistant_response: finalResponse },
           ];
+          historyModified.current = true;
           conversationHistoryRef.current = nextHistory;
           setConversationHistory(nextHistory);
+          persistConversationHistory(nextHistory);
         }
         recordConversationHistory.current = false;
         setMessages(prev => [
@@ -322,24 +365,31 @@ export const useChat = (
     const nextHistory = conversationHistoryRef.current.map((entry, entryIndex) => (
       entryIndex === index ? { ...entry, [field]: value } : entry
     ));
+    historyModified.current = true;
     conversationHistoryRef.current = nextHistory;
     setConversationHistory(nextHistory);
+    persistConversationHistory(nextHistory);
   };
 
   const handleDeleteHistoryEntry = (index: number) => {
     const nextHistory = conversationHistoryRef.current.filter((_, entryIndex) => entryIndex !== index);
+    historyModified.current = true;
     conversationHistoryRef.current = nextHistory;
     setConversationHistory(nextHistory);
+    persistConversationHistory(nextHistory);
   };
 
   const handleClearConversationHistory = () => {
+    historyModified.current = true;
     conversationHistoryRef.current = [];
     setConversationHistory([]);
+    persistConversationHistory([]);
   };
 
   return {
     messages,
     conversationHistory,
+    conversationHistoryStatus,
     loading,
     activeTool,
     iteration,

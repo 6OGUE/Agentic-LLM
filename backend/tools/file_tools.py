@@ -130,8 +130,8 @@ def search_file(
     )
 
 
-def open_app_or_file(path_or_name: str) -> str:
-    target = Path(path_or_name)
+def open_file(path: str) -> str:
+    target = Path(path)
     if target.is_file():
         if target.suffix.lower() == ".exe":
             subprocess.Popen(
@@ -145,9 +145,9 @@ def open_app_or_file(path_or_name: str) -> str:
 
     has_path = target.parent != Path(".") or bool(target.drive)
     if not has_path:
-        executable = shutil.which(path_or_name)
+        executable = shutil.which(path)
         if executable:
             subprocess.Popen([executable])
             return f"Opened app: {executable}"
 
-    raise FileNotFoundError(f"No file or executable found: {path_or_name}")
+    raise FileNotFoundError(f"No file or executable found: {path}")

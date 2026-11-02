@@ -23,50 +23,122 @@ from llm import (
 )
 
 
-_custom_instruction = ""
+_CONVERSATION_HISTORY_FILE = Path(__file__).resolve().parent / "conversation_history.txt"
+_HISTORY_MARKERS = {
+    "=== Conversation ===",
+    "User:",
+    "Assistant:",
+    "=== End user message ===",
+    "=== End assistant response ===",
+}
 
 
-def _append_memory_entry(instruction: str, memory: str) -> str:
-    existing_memories = {
-        line.strip().casefold()
-        for line in instruction.splitlines()
-        if line.strip()
-    }
-    if memory.casefold() in existing_memories:
-        return instruction
-
-    instruction = instruction.rstrip()
-    if instruction:
-        instruction += "\n"
-    return f"{instruction}{memory}"
+def _escape_history_text(text: str) -> str:
+    escaped_lines = []
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        ending = line[len(content):]
+        if content.startswith("\\") or content in _HISTORY_MARKERS:
+            content = f"\\{content}"
+        escaped_lines.append(f"{content}{ending}")
+    return "".join(escaped_lines)
 
 
-def _remember_memory(memory: Any) -> Optional[str]:
-    global _custom_instruction
+def _unescape_history_text(text: str) -> str:
+    unescaped_lines = []
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        ending = line[len(content):]
+        if content.startswith("\\\\") or content[1:] in _HISTORY_MARKERS:
+            content = content[1:]
+        unescaped_lines.append(f"{content}{ending}")
+    return "".join(unescaped_lines)
 
-    if memory is None:
-        return None
-    if not isinstance(memory, str):
-        print("Ignoring non-string memory returned by the model.")
-        return None
 
-    memory = " ".join(memory.split())
-    if not memory:
-        return None
+def _serialize_conversation_history(
+    entries: list["ConversationHistoryEntry"],
+) -> str:
+    sections = []
+    for entry in entries:
+        sections.extend([
+            "=== Conversation ===\n",
+            "User:\n",
+            _escape_history_text(entry.user_message),
+            "\n",
+            "=== End user message ===\n",
+            "Assistant:\n",
+            _escape_history_text(entry.assistant_response),
+            "\n",
+            "=== End assistant response ===\n",
+        ])
+    return "".join(sections)
 
-    updated_instruction = _append_memory_entry(_custom_instruction, memory)
-    if updated_instruction == _custom_instruction:
-        return None
-    _custom_instruction = updated_instruction
-    return _custom_instruction
+
+def _parse_conversation_history(text: str) -> list[dict[str, str]]:
+    lines = text.splitlines(keepends=True)
+    entries = []
+    index = 0
+
+    def read_marker(marker: str) -> None:
+        nonlocal index
+        if index >= len(lines) or lines[index].rstrip("\r\n") != marker:
+            raise ValueError(f"Expected {marker!r} in conversation history.")
+        index += 1
+
+    def read_message(end_marker: str) -> str:
+        nonlocal index
+        message_lines = []
+        while index < len(lines) and lines[index].rstrip("\r\n") != end_marker:
+            if lines[index].rstrip("\r\n") in _HISTORY_MARKERS:
+                raise ValueError("Unexpected marker in conversation history.")
+            message_lines.append(lines[index])
+            index += 1
+        if index >= len(lines):
+            raise ValueError(f"Missing {end_marker!r} in conversation history.")
+        index += 1
+        message = "".join(message_lines)
+        if message.endswith("\n"):
+            message = message[:-1]
+        return _unescape_history_text(message)
+
+    while index < len(lines):
+        read_marker("=== Conversation ===")
+        read_marker("User:")
+        user_message = read_message("=== End user message ===")
+        read_marker("Assistant:")
+        assistant_response = read_message("=== End assistant response ===")
+        entries.append({
+            "user_message": user_message,
+            "assistant_response": assistant_response,
+        })
+
+    return entries
+
+
+def _read_conversation_history() -> list[dict[str, str]]:
+    if not _CONVERSATION_HISTORY_FILE.exists():
+        return []
+    with _CONVERSATION_HISTORY_FILE.open(
+        "r",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        return _parse_conversation_history(file.read())
+
+
+def _write_conversation_history(
+    entries: list["ConversationHistoryEntry"],
+) -> None:
+    temporary_file = _CONVERSATION_HISTORY_FILE.with_suffix(".txt.tmp")
+    with temporary_file.open("w", encoding="utf-8", newline="") as file:
+        file.write(_serialize_conversation_history(entries))
+    temporary_file.replace(_CONVERSATION_HISTORY_FILE)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global _custom_instruction
     yield
     clear_api_key()
-    _custom_instruction = ""
 
 
 app = FastAPI(lifespan=lifespan)
@@ -87,17 +159,16 @@ class ChatRequest(BaseModel):
     message: str
     confirmed: Optional[bool] = None
     task_id: Optional[str] = None
-    custom_instruction: Optional[str] = None
     conversation_history_enabled: Optional[bool] = None
     conversation_history: Optional[list[ConversationHistoryEntry]] = None
 
 
+class ConversationHistoryRequest(BaseModel):
+    entries: list[ConversationHistoryEntry]
+
+
 class ApiKeyRequest(BaseModel):
     api_key: str
-
-
-class CustomInstructionRequest(BaseModel):
-    custom_instruction: str
 
 
 class ModelRequest(BaseModel):
@@ -109,14 +180,14 @@ class PendingAgentTask:
     available_tools: list[dict[str, Any]]
     registry: dict[str, Any]
     user_message: str
-    custom_instruction: str
     conversation_history_enabled: bool
     conversation_history: list[dict[str, str]]
     iteration: int
     require_tool_choice: bool
     last_read_path: Optional[str]
     tool_error: bool
-    last_tool_call: Optional[tuple[str, dict]]
+    attempted_tool_calls: set[tuple[str, str]]
+    duplicate_tool_call_rejections: int
     pending_tool_call: tuple[str, dict]
     created_at: float
 
@@ -181,20 +252,60 @@ def _build_incomplete_response_prompt(original_request: str) -> str:
 
 def _build_repeated_tool_prompt(
     original_request: str,
-    tool_name: str,
-    tool_args: dict,
+    repeated_tool_calls: list[tuple[str, str]],
 ) -> str:
+    repeated_calls = "\n".join(
+        f"        - name: {tool_name}\n"
+        f"          arguments: {arguments}"
+        for tool_name, arguments in repeated_tool_calls
+    )
     return f"""
 
     Original request: {original_request}
-    You already executed this exact tool call successfully:
-        - name: {tool_name}
-        - arguments: {json.dumps(tool_args, ensure_ascii=False)}
-    Do not call the same tool with the same arguments again. Use the existing
-    result and provide the final answer now. Return tool_call=false with a
-    non-empty response.
+    The following exact tool call(s) were rejected as duplicates and were not
+    executed:
+{repeated_calls}
+    Do not repeat any of them. Continue using a different tool or different
+    arguments. If no different call can help, provide the final answer and
+    explain what could not be done.
 
     """
+
+
+def _tool_call_fingerprints(
+    tool_name: str,
+    tool_args: dict[str, Any],
+) -> list[tuple[str, str]]:
+    fingerprints = [(
+        tool_name,
+        json.dumps(
+            tool_args,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ),
+    )]
+
+    if tool_name == "run_tool_batch":
+        operations = tool_args.get("operations")
+        if isinstance(operations, list):
+            for operation in operations:
+                if (
+                    isinstance(operation, dict)
+                    and isinstance(operation.get("tool"), str)
+                    and isinstance(operation.get("args"), dict)
+                ):
+                    fingerprints.append((
+                        operation["tool"],
+                        json.dumps(
+                            operation["args"],
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                        ),
+                    ))
+
+    return fingerprints
 
 
 def _build_denied_tool_prompt(original_request: str, tool_name: str) -> str:
@@ -212,7 +323,6 @@ def agent_events(
     user_message: str,
     confirmed: Optional[bool] = None,
     task_id: Optional[str] = None,
-    custom_instruction: str = "",
     conversation_history_enabled: Optional[bool] = None,
     conversation_history: Optional[list[dict[str, str]]] = None,
 ) -> Iterator[dict]:
@@ -228,7 +338,6 @@ def agent_events(
         available_tools = pending_task.available_tools
         registry = pending_task.registry
         user_message = pending_task.user_message
-        custom_instruction = pending_task.custom_instruction
         if conversation_history_enabled is None:
             conversation_history_enabled = pending_task.conversation_history_enabled
         if conversation_history is None:
@@ -237,11 +346,14 @@ def agent_events(
         require_tool_choice = pending_task.require_tool_choice
         last_read_path = pending_task.last_read_path
         tool_error = pending_task.tool_error
-        last_tool_call = pending_task.last_tool_call
+        attempted_tool_calls = pending_task.attempted_tool_calls
+        duplicate_tool_call_rejections = (
+            pending_task.duplicate_tool_call_rejections
+        )
         pending_tool_call: Optional[tuple[str, dict]] = pending_task.pending_tool_call
     else:
-        custom_instruction = _custom_instruction
-        conversation_history_enabled = conversation_history_enabled or False
+        if conversation_history_enabled is None:
+            conversation_history_enabled = True
         conversation_history = conversation_history or []
         tools_schema = load_tools_schema("tool_details.json")
         registry = build_tool_registry(tools_schema)
@@ -250,7 +362,8 @@ def agent_events(
         require_tool_choice = True
         last_read_path = None
         tool_error = False
-        last_tool_call = None
+        attempted_tool_calls = set()
+        duplicate_tool_call_rejections = 0
         pending_tool_call = None
 
     while True:
@@ -270,21 +383,9 @@ def agent_events(
                 user_message,
                 available_tools,
                 require_tool_choice=require_tool_choice and bool(available_tools),
-                custom_system_prompt=custom_instruction,
                 conversation_history_enabled=conversation_history_enabled,
                 conversation_history=conversation_history,
             )
-            updated_instruction = (
-                _remember_memory(output.get("memory"))
-                if isinstance(output, dict)
-                else None
-            )
-            if updated_instruction is not None:
-                custom_instruction = updated_instruction
-                yield {
-                    "event": "custom_instruction",
-                    "custom_instruction": updated_instruction,
-                }
             yield {
                 "event": "llm_call",
                 "iteration": iteration,
@@ -330,6 +431,13 @@ def agent_events(
 
         tool_name = output.get("tool_name")
         tool_args = output.get("tool_args") or {}
+
+        if not isinstance(tool_args, dict):
+            yield {
+                "status": "error",
+                "response": "Model requested a tool call with invalid arguments.",
+            }
+            return
 
         if tool_name == "rename_file" and last_read_path:
             requested_path = tool_args.get("path", "")
@@ -384,13 +492,54 @@ def agent_events(
             }
             return
 
-        if last_tool_call == (tool_name, tool_args):
+        call_fingerprints = _tool_call_fingerprints(tool_name, tool_args)
+        seen_in_call: set[tuple[str, str]] = set()
+        repeated_tool_calls = []
+        for fingerprint in call_fingerprints:
+            if (
+                fingerprint in attempted_tool_calls
+                or fingerprint in seen_in_call
+            ):
+                repeated_tool_calls.append(fingerprint)
+            else:
+                seen_in_call.add(fingerprint)
+
+        if repeated_tool_calls:
+            duplicate_tool_call_rejections += 1
+            yield {
+                "event": "tool_execution",
+                "tool_name": tool_name,
+                "tool_args": tool_args,
+                "result": {
+                    "error": (
+                        "Exact duplicate tool call rejected; it was not "
+                        "executed."
+                    ),
+                    "duplicate_tool_calls": [
+                        {
+                            "tool_name": repeated_tool_name,
+                            "arguments": json.loads(arguments),
+                        }
+                        for repeated_tool_name, arguments in repeated_tool_calls
+                    ],
+                },
+                "status": "rejected",
+            }
+            if duplicate_tool_call_rejections >= 3:
+                yield {
+                    "status": "error",
+                    "response": (
+                        "The model repeatedly requested duplicate tool calls. "
+                        "No duplicate calls were executed."
+                    ),
+                }
+                return
+
             user_message = _build_repeated_tool_prompt(
                 user_message,
-                tool_name,
-                tool_args,
+                repeated_tool_calls,
             )
-            require_tool_choice = False
+            require_tool_choice = True
             continue
 
         current_tool = next(
@@ -406,14 +555,16 @@ def agent_events(
                     available_tools=available_tools,
                     registry=registry,
                     user_message=user_message,
-                    custom_instruction=custom_instruction,
                     conversation_history_enabled=conversation_history_enabled,
                     conversation_history=conversation_history or [],
                     iteration=iteration,
                     require_tool_choice=require_tool_choice,
                     last_read_path=last_read_path,
                     tool_error=tool_error,
-                    last_tool_call=last_tool_call,
+                    attempted_tool_calls=set(attempted_tool_calls),
+                    duplicate_tool_call_rejections=(
+                        duplicate_tool_call_rejections
+                    ),
                     pending_tool_call=(tool_name, tool_args),
                     created_at=time.time(),
                 )
@@ -446,6 +597,8 @@ def agent_events(
             confirmed = None
             continue
 
+        attempted_tool_calls.update(call_fingerprints)
+        duplicate_tool_call_rejections = 0
         yield {"event": "tool_call", "tool_name": tool_name}
         yield {
             "event": "tool_execution",
@@ -471,11 +624,6 @@ def agent_events(
             "status": "completed",
         }
 
-        if not isinstance(result, str) or not result.startswith(
-            ("Execution error:", "Tool validation error:")
-        ):
-            last_tool_call = (tool_name, tool_args)
-
         if tool_name == "read_file" and not str(result).startswith("Execution error:"):
             last_read_path = tool_args.get("path")
         tool_error = isinstance(result, str) and (
@@ -498,11 +646,6 @@ def agent(user_message: str, confirmed: Optional[bool] = None):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    if request.custom_instruction is not None and request.task_id is None:
-        update_custom_instruction(
-            CustomInstructionRequest(custom_instruction=request.custom_instruction)
-        )
-
     def event_stream():
         for event in agent_events(
             request.message,
@@ -522,16 +665,28 @@ def chat(request: ChatRequest):
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 
 
-@app.get("/custom-instruction")
-def get_custom_instruction():
-    return {"custom_instruction": _custom_instruction}
+@app.get("/conversation-history")
+def get_conversation_history():
+    try:
+        entries = _read_conversation_history()
+    except (OSError, ValueError) as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read conversation history: {error}",
+        ) from error
+    return {"entries": entries}
 
 
-@app.put("/custom-instruction")
-def update_custom_instruction(request: CustomInstructionRequest):
-    global _custom_instruction
-    _custom_instruction = request.custom_instruction
-    return {"custom_instruction": _custom_instruction}
+@app.put("/conversation-history")
+def update_conversation_history(request: ConversationHistoryRequest):
+    try:
+        _write_conversation_history(request.entries)
+    except OSError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not save conversation history: {error}",
+        ) from error
+    return {"entries": [entry.model_dump() for entry in request.entries]}
 
 
 @app.get("/api-key/status")

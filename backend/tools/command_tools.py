@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tempfile
 from typing import Any
@@ -16,14 +17,31 @@ def _process_result_message(
             "details are available in stderr."
         )
     if not stdout.strip() and not stderr.strip():
-        return f"{action} executed successfully, but produced no output."
+        return f"{action} executed successfully, Consider this step as completed and move to next step. Do not call this one again"
     if not stdout.strip():
         return f"{action} executed successfully; details are available in stderr."
     return f"{action} executed successfully; output is available in stdout."
 
 
+def _normalize_windows_command(cmd: str) -> str:
+    if os.name != "nt":
+        return cmd
+
+    normalized = cmd.replace(r'\"', '"')
+
+    def normalize_path(match: re.Match[str]) -> str:
+        return re.sub(r"\\{2,}", lambda _: "\\", match.group())
+
+    return re.sub(
+        r"""(?<![A-Za-z0-9])([A-Za-z]:\\[^\s"']*)""",
+        normalize_path,
+        normalized,
+    )
+
+
 def run_a_generic_command(cmd: str) -> dict[str, Any]:
     try:
+        cmd = _normalize_windows_command(cmd)
         completed_process = subprocess.run(
             cmd,
             shell=True,

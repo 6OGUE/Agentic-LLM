@@ -3,6 +3,7 @@ import type { ConversationHistoryEntry } from '../types';
 
 interface HistoryPanelProps {
   entries: ConversationHistoryEntry[];
+  status: string;
   historyEnabled: boolean;
   onToggleHistory: (enabled: boolean) => void;
   onEditEntry: (index: number, field: keyof ConversationHistoryEntry, value: string) => void;
@@ -13,6 +14,7 @@ interface HistoryPanelProps {
 
 const HistoryPanel: React.FC<HistoryPanelProps> = ({
   entries,
+  status,
   historyEnabled,
   onToggleHistory,
   onEditEntry,
@@ -26,7 +28,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     <section className="history-panel popup-window" role="dialog" aria-modal="true" aria-labelledby="history-title">
       <div className="popup-window-header">
         <div>
-          <span className="console-kicker">Saved for this page session</span>
+          <span className="console-kicker"></span>
           <h2 id="history-title">Conversation History</h2>
         </div>
         <div className="history-panel-actions">
@@ -37,7 +39,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
       </div>
       <label className={`auto-accept-label history-enabled-label${historyEnabled ? ' active' : ''}`}>
-        Include history in system prompt
+        Turn Conversation History ON/OFF
         <div className="toggle">
           <input
             type="checkbox"
@@ -49,8 +51,9 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
           <div className="toggle-thumb" />
         </div>
       </label>
+      <div className="history-status" role="status">{status}</div>
       {entries.length === 0 ? (
-        <p className="history-empty">No saved conversations yet. Turn on History and complete a chat to save it.</p>
+        <p className="history-empty">No saved conversations yet.</p>
       ) : (
         <div className="history-entries">
           {entries.map((entry, index) => (
@@ -67,7 +70,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 </button>
               </div>
               <label>
-                User message
+                Message
                 <textarea
                   value={entry.user_message}
                   onChange={event => onEditEntry(index, 'user_message', event.target.value)}
@@ -75,7 +78,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 />
               </label>
               <label>
-                Final response
+                Response
                 <textarea
                   value={entry.assistant_response}
                   onChange={event => onEditEntry(index, 'assistant_response', event.target.value)}

@@ -26,11 +26,6 @@ export interface IterationEvent {
   iteration: number;
 }
 
-export interface CustomInstructionEvent {
-  event: "custom_instruction";
-  custom_instruction: string;
-}
-
 export interface InternalEvent {
   event: "llm_call" | "tool_execution" | "agent_response";
   iteration?: number;
@@ -40,5 +35,5 @@ export interface InternalEvent {
   response?: unknown;
   result?: unknown;
   duration_seconds?: number;
-  status?: "started" | "completed";
+  status?: "started" | "completed" | "rejected";
 }

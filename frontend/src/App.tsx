@@ -9,11 +9,8 @@ import './App.css';
 const App: React.FC = () => {
   const [input, setInput] = useState('');
   const [autoAccept, setAutoAccept] = useState(false);
-  const [conversationHistoryEnabled, setConversationHistoryEnabled] = useState(false);
+  const [conversationHistoryEnabled, setConversationHistoryEnabled] = useState(true);
   const [consoleOpen, setConsoleOpen] = useState(false);
-  const [customInstruction, setCustomInstruction] = useState('');
-  const [customInstructionLoaded, setCustomInstructionLoaded] = useState(false);
-  const [customInstructionStatus, setCustomInstructionStatus] = useState('Loading…');
   const [apiKey, setApiKey] = useState('');
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [apiKeyError, setApiKeyError] = useState('');
@@ -25,6 +22,7 @@ const App: React.FC = () => {
   const {
     messages,
     conversationHistory,
+    conversationHistoryStatus,
     loading,
     activeTool,
     iteration,
@@ -35,27 +33,9 @@ const App: React.FC = () => {
     handleEditHistoryEntry,
     handleDeleteHistoryEntry,
     handleClearConversationHistory,
-  } = useChat(
-    autoAccept,
-    conversationHistoryEnabled,
-    customInstruction,
-    setCustomInstruction,
-  );
+  } = useChat(autoAccept, conversationHistoryEnabled);
 
   useEffect(() => {
-    fetch('http://localhost:8000/custom-instruction')
-      .then(async response => {
-        if (!response.ok) throw new Error('Could not load custom instruction.');
-        return response.json();
-      })
-      .then(data => {
-        setCustomInstruction(data.custom_instruction);
-        setCustomInstructionStatus('Saved');
-        setCustomInstructionLoaded(true);
-      })
-      .catch(error => {
-        setCustomInstructionStatus(error instanceof Error ? error.message : 'Could not load custom instruction.');
-      });
     fetch('http://localhost:8000/api-key/status')
       .then(response => response.json())
       .then(data => setApiKeyConfigured(data.configured))
@@ -71,25 +51,6 @@ const App: React.FC = () => {
       })
       .catch(error => setModelError(error instanceof Error ? error.message : 'Could not load model settings.'));
   }, []);
-
-  useEffect(() => {
-    if (!customInstructionLoaded) return;
-    setCustomInstructionStatus('Saving…');
-    const timeout = window.setTimeout(async () => {
-      try {
-        const response = await fetch('http://localhost:8000/custom-instruction', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ custom_instruction: customInstruction }),
-        });
-        if (!response.ok) throw new Error('Could not save custom instruction.');
-        setCustomInstructionStatus('Autosaved');
-      } catch (error) {
-        setCustomInstructionStatus(error instanceof Error ? error.message : 'Could not save custom instruction.');
-      }
-    }, 400);
-    return () => window.clearTimeout(timeout);
-  }, [customInstruction, customInstructionLoaded]);
 
   const onSaveApiKey = async () => {
     if (!apiKey.trim() || apiKeyBusy) return;
@@ -164,14 +125,12 @@ const App: React.FC = () => {
         conversationHistoryEnabled={conversationHistoryEnabled}
         onToggleConversationHistory={setConversationHistoryEnabled}
         conversationHistory={conversationHistory}
+        conversationHistoryStatus={conversationHistoryStatus}
         onEditHistoryEntry={handleEditHistoryEntry}
         onDeleteHistoryEntry={handleDeleteHistoryEntry}
         onClearConversationHistory={handleClearConversationHistory}
         consoleOpen={consoleOpen}
         onToggleConsole={() => setConsoleOpen(open => !open)}
-        customInstruction={customInstruction}
-        onCustomInstructionChange={setCustomInstruction}
-        customInstructionStatus={customInstructionStatus}
         apiKey={apiKey}
         onApiKeyChange={setApiKey}
         apiKeyConfigured={apiKeyConfigured}
